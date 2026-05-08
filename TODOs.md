@@ -57,20 +57,29 @@ Process decisions:
 
 ## M3 — Static layout: board, service column, buttons
 
+**Status:** Done — confirmed by user.
+
 **Done when:** all components are visible in their places (no colors yet beyond stroke, no logic, no interactivity).
 
 **Tasks:**
 
 *Board:*
-- [ ] `render.js`: `drawBoard(boardSize)` — bronze frame + N×N grid of empty cells, board square inscribed in its zone
-- [ ] `render.js`: chess-convention checkerboard fill (bottom-left dark)
+- [x] `render.js`: `drawBoard(boardSize)` — bronze frame + N×N grid of empty cells, board square inscribed in its zone
+- [x] `render.js`: chess-convention checkerboard fill (bottom-left dark)
 
 *Service column (right side, playing screen):*
-- [ ] `render.js`: `drawServiceColumn()` — parchment vertical strip with placeholder for step counter, Undo, Give up?
+- [x] `render.js`: `drawServiceColumn()` — parchment vertical strip with placeholder for step counter, Undo, Give up?
 
 *Bottom service zone (welcome / finished):*
-- [ ] `render.js`: `drawServiceArea()` — placeholder for two side-by-side buttons
-- [ ] `render.js`: `drawButton(label, x, y, style, disabled?)` — helper: rounded rectangle with label
+- [x] `render.js`: `drawServiceArea()` — placeholder for two side-by-side buttons
+- [x] `render.js`: `drawButton(label, x, y, style, disabled?)` — helper: rounded rectangle with label
+
+**M3 implementation notes / spec adjustments:**
+- Static preview renders the playing screen only; `Settings & Rules` and `Start game` are reserved for welcome / finished screens.
+- Header text is combined as `Knight's Path: Step 2 / 25`.
+- `x_board_left/right` and `y_board_top/bottom` define the inner cell grid, while the square board frame is drawn outward from those lines.
+- Board coordinates (`a..e`, `1..5` in the M3 preview) are drawn inside the frame next to the grid.
+- The right service area uses a full-width rectangular move-history panel from `x_col_left` to `x_right`, a text `Undo` button in the header band, and a full-width `Give up?` button in the lower service band.
 
 **How to verify:**
 - Open in browser → board visible on the left, parchment column on the right, bottom service band reserved

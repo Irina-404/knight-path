@@ -38,6 +38,7 @@
   function render() {
     window.KnightPathRender.recomputeLayout(canvas, DEFAULT_BOARD_SIZE);
     window.KnightPathRender.drawBackground(context);
+    window.KnightPathRender.drawStaticLayout(context, DEFAULT_BOARD_SIZE);
     if (debugMode) {
       window.KnightPathRender.drawDebugGrid(context);
     }
