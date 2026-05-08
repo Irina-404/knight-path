@@ -13,18 +13,20 @@ Process decisions:
 
 ## M1 — HTML + empty Canvas
 
+**Status:** Done — confirmed by user.
+
 **Done when:** opening `index.html` in a browser shows a filled green Canvas rectangle.
 
 **Tasks:**
-- [ ] `index.html`: base document (charset, viewport, title)
-- [ ] `index.html`: `<canvas>` element with id
-- [ ] `index.html`: `<noscript>` fallback message; `game.js` checks Canvas support and shows text if unavailable
-- [ ] `index.html`: CSS — canvas full-screen, page background black, no scrollbar
-- [ ] `game.js`: `safeStorage` — wrapper over `localStorage` with try/catch (fallback: in-memory object)
-- [ ] `render.js`: `recomputeLayout(canvas, boardSize)` — computes canvas size from `window.innerWidth/Height`, 4:3 ratio
-- [ ] `render.js`: `drawBackground()` — fills `COLOR_BG` (`#1A5C35`)
-- [ ] `game.js`: canvas init, calls `recomputeLayout()` and `drawBackground()` on load
-- [ ] `game.js`: `window.addEventListener('resize', ...)` → recompute and redraw
+- [x] `index.html`: base document (charset, viewport, title)
+- [x] `index.html`: `<canvas>` element with id
+- [x] `index.html`: `<noscript>` fallback message; `game.js` checks Canvas support and shows text if unavailable
+- [x] `index.html`: CSS — canvas full-screen, page background black, no scrollbar
+- [x] `game.js`: `safeStorage` — wrapper over `localStorage` with try/catch (fallback: in-memory object)
+- [x] `render.js`: `recomputeLayout(canvas, boardSize)` — computes canvas size from `window.innerWidth/Height`, 4:3 ratio
+- [x] `render.js`: `drawBackground()` — fills `COLOR_BG` (`#1A5C35`)
+- [x] `game.js`: canvas init, calls `recomputeLayout()` and `drawBackground()` on load
+- [x] `game.js`: `window.addEventListener('resize', ...)` → recompute and redraw
 
 **How to verify:**
 - Open `index.html` in a browser → green rectangle is visible
@@ -36,12 +38,14 @@ Process decisions:
 
 ## M2 — Debug mode: layout reference lines
 
+**Status:** Done — confirmed by user.
+
 **Done when:** pressing `D` shows all layout lines with labels on the canvas.
 
 **Tasks:**
-- [ ] `render.js`: constants for all key X / Y lines as percentages of canvas (per UI_SPEC §1)
-- [ ] `render.js`: `drawDebugGrid()` — draws all horizontal and vertical lines, labels each (`y_board_top`, `x_col_left`, etc.)
-- [ ] `game.js`: toggle `debugMode` on `D` keypress; if on, call `drawDebugGrid()` after every `render()`
+- [x] `render.js`: constants for all key X / Y lines as percentages of canvas (per UI_SPEC §1)
+- [x] `render.js`: `drawDebugGrid()` — draws all horizontal and vertical lines, labels each (`y_board_top`, `x_col_left`, etc.)
+- [x] `game.js`: toggle `debugMode` on `D` keypress; if on, call `drawDebugGrid()` after every `render()`
 
 **How to verify:**
 - Press `D` → labelled lines appear over the background

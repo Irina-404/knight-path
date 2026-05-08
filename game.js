@@ -23,6 +23,7 @@
 
   let canvas = null;
   let context = null;
+  let debugMode = false;
 
   function showCanvasFallback() {
     const fallback = document.getElementById("canvasFallback");
@@ -37,6 +38,16 @@
   function render() {
     window.KnightPathRender.recomputeLayout(canvas, DEFAULT_BOARD_SIZE);
     window.KnightPathRender.drawBackground(context);
+    if (debugMode) {
+      window.KnightPathRender.drawDebugGrid(context);
+    }
+  }
+
+  function handleKeyDown(event) {
+    if (event.key.toLowerCase() === "d") {
+      debugMode = !debugMode;
+      render();
+    }
   }
 
   function init() {
@@ -54,6 +65,7 @@
 
     render();
     window.addEventListener("resize", render);
+    window.addEventListener("keydown", handleKeyDown);
   }
 
   window.KnightPathGame = {
