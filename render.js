@@ -13,12 +13,14 @@
     SERVICE_FILL: "rgba(245, 236, 215, 0.72)",
     SERVICE_STROKE: "rgba(139, 105, 20, 0.78)",
     SERVICE_TEXT: "rgba(61, 24, 0, 0.72)",
-    HISTORY_FILL: "rgba(61, 24, 0, 0.16)",
-    HISTORY_STROKE: "rgba(255, 255, 255, 0.62)",
+    HISTORY_FILL: "rgba(255, 255, 255, 0.08)",
+    HISTORY_STROKE: "rgba(255, 255, 255, 0.34)",
     COORD_TEXT: "rgba(255, 255, 255, 0.84)",
   };
 
   const DEFAULT_BOARD_SIZE = 5;
+  const welcomeImage = createImage("knight-path-cover.webp");
+  const knightImage = createImage("knight.webp");
 
   const X_LINES = [
     ["x_left", 0.05],
@@ -114,19 +116,69 @@
     context.fillRect(0, 0, layout.width, layout.height);
   }
 
-  function drawStaticLayout(context, boardSize) {
-    drawHeaderPlaceholder(context);
-    drawBoard(context, boardSize || DEFAULT_BOARD_SIZE);
-    drawServiceColumn(context);
+  function render(context, game) {
+    drawBackground(context);
+    if (game.state === "welcome") {
+      drawWelcome(context);
+      return;
+    }
+    drawPlaying(context, game);
   }
 
-  function drawHeaderPlaceholder(context) {
+  function drawWelcome(context) {
+    drawCoverImage(context, welcomeImage);
+    context.fillStyle = "rgba(0, 0, 0, 0.58)";
+    context.fillRect(0, 0, layout.width, layout.height);
+
+    const titleSize = Math.round(layout.btnH * 1.1);
+    context.save();
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.font = `bold ${titleSize}px Arial, Helvetica, sans-serif`;
+    context.shadowColor = "#FFB300";
+    context.shadowBlur = 18;
+    context.fillStyle = "#FFD700";
+    context.fillText("Knight's Path", layout.lines.x_center, layout.lines.y_header + (layout.lines.y_board_top - layout.lines.y_header) / 2);
+
+    const bodySize = Math.round(layout.btnH * 0.65);
+    const lineHeight = bodySize * 1.7;
+    const lines = [
+      "Help the knight visit",
+      "every square exactly once.",
+    ];
+    const centerY = (layout.lines.y_header + layout.lines.y_service_mid) / 2 + layout.btnH * 0.35;
+    const totalHeight = (lines.length - 1) * lineHeight;
+    context.font = `${bodySize}px Arial, Helvetica, sans-serif`;
+    context.fillStyle = COLOR.PLACEHOLDER_TEXT;
+    context.shadowBlur = 10;
+    for (let index = 0; index < lines.length; index += 1) {
+      context.fillText(lines[index], layout.lines.x_center, centerY - totalHeight / 2 + index * lineHeight);
+    }
+    context.restore();
+
+    const buttons = welcomeButtonRects();
+    drawButton(context, "Settings & Rules", buttons.settings.x + buttons.settings.w / 2, buttons.settings.y + buttons.settings.h / 2, "ghost");
+    drawButton(context, "Start game", buttons.start.x + buttons.start.w / 2, buttons.start.y + buttons.start.h / 2, "gold");
+  }
+
+  function drawPlaying(context, game) {
+    drawHeader(context, game);
+    drawBoard(context, game.boardSize || DEFAULT_BOARD_SIZE);
+    if (game.knightPos) {
+      drawKnight(context, game.knightPos, game.boardSize || DEFAULT_BOARD_SIZE);
+    }
+    drawServiceColumn(context, game);
+  }
+
+  function drawHeader(context, game) {
+    const step = game.path && game.path.length ? game.path.length : 1;
+    const total = (game.boardSize || DEFAULT_BOARD_SIZE) ** 2;
     context.save();
     context.fillStyle = COLOR.PLACEHOLDER_TEXT;
     context.font = `bold ${Math.round(layout.btnH * 0.55)}px Arial, Helvetica, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText("Knight's Path: Step 2 / 25", layout.boardX + layout.boardSide / 2, (layout.lines.y_top + layout.lines.y_header) / 2);
+    context.fillText(`Knight's Path: Step ${step} / ${total}`, layout.boardX + layout.boardSide / 2, (layout.lines.y_top + layout.lines.y_header) / 2);
     context.restore();
   }
 
@@ -195,7 +247,34 @@
     context.restore();
   }
 
-  function drawServiceColumn(context) {
+  function drawKnight(context, cell, boardSize) {
+    const center = cellCenter(cell, boardSize);
+    const breath = Math.sin(performance.now() / 900);
+    const size = layout.cellSize * (0.76 + breath * 0.012);
+    const lift = layout.cellSize * breath * 0.012;
+    const drawX = center.x - size / 2;
+    const drawY = center.y - size / 2 - lift;
+
+    context.save();
+    if (knightImage.complete && knightImage.naturalWidth > 0) {
+      context.drawImage(knightImage, drawX, drawY, size, size);
+    } else {
+      context.fillStyle = "rgba(255, 220, 120, 0.82)";
+      context.beginPath();
+      context.arc(center.x, center.y - lift, size * 0.34, 0, Math.PI * 2);
+      context.fill();
+    }
+    context.restore();
+  }
+
+  function cellCenter(cell, boardSize) {
+    return {
+      x: layout.boardX + cell.x * layout.cellSize + layout.cellSize / 2,
+      y: layout.boardY + (boardSize - 1 - cell.y) * layout.cellSize + layout.cellSize / 2,
+    };
+  }
+
+  function drawServiceColumn(context, game) {
     const x = layout.lines.x_col_left;
     const w = layout.lines.x_right - layout.lines.x_col_left;
     const centerX = x + w / 2;
@@ -204,7 +283,7 @@
 
     context.save();
     drawButton(context, "Undo", centerX, headerY, "ghost", false, w);
-    drawMoveHistory(context, panel);
+    drawMoveHistory(context, panel, game);
     drawButton(context, "Give up?", centerX, (layout.lines.y_service_mid + layout.lines.y_bottom) / 2, "muted", false, panel.w);
     context.restore();
   }
@@ -223,29 +302,39 @@
     };
   }
 
-  function drawMoveHistory(context, panel) {
+  function drawMoveHistory(context, panel, game) {
     const pad = Math.round(layout.btnH * 0.28);
-    const rowH = Math.max(18, Math.round(layout.btnH * 0.40));
+    const rowH = Math.max(22, Math.round(layout.btnH * 0.52));
     const scrollW = Math.max(24, Math.round(panel.w * 0.12));
 
     context.save();
     context.fillStyle = COLOR.HISTORY_FILL;
-    context.fillRect(panel.x, panel.y, panel.w, panel.h);
+    drawRoundRect(context, panel.x, panel.y, panel.w, panel.h, layout.btnRadius);
+    context.fill();
     context.strokeStyle = COLOR.HISTORY_STROKE;
     context.lineWidth = 2;
-    context.strokeRect(panel.x, panel.y, panel.w, panel.h);
+    context.stroke();
 
     context.fillStyle = COLOR.COORD_TEXT;
     context.font = `${Math.round(layout.btnH * 0.44)}px Arial, Helvetica, sans-serif`;
     context.textAlign = "left";
     context.textBaseline = "middle";
-    context.fillText("1) a1", panel.x + pad * 0.65, panel.y + rowH * 0.9);
+    const path = game.path && game.path.length ? game.path : [{ x: 0, y: 0 }];
+    for (let index = 0; index < path.length; index += 1) {
+      const rowY = panel.y + rowH * 0.85 + index * rowH;
+      if (rowY > panel.y + panel.h - rowH * 0.5) break;
+      context.fillText(`${index + 1}) ${cellName(path[index])}`, panel.x + pad * 0.65, rowY);
+    }
 
     context.fillStyle = "rgba(255, 255, 255, 0.32)";
     context.fillRect(panel.x + panel.w - scrollW - 3, panel.y + 3, scrollW, panel.h - 6);
     context.fillStyle = "rgba(255, 255, 255, 0.54)";
     context.fillRect(panel.x + panel.w - scrollW - 3, panel.y + 3, scrollW, Math.max(rowH * 1.6, panel.h * 0.22));
     context.restore();
+  }
+
+  function cellName(cell) {
+    return `${"abcdefgh"[cell.x]}${cell.y + 1}`;
   }
 
   function drawButton(context, label, centerX, centerY, style, disabled, width) {
@@ -260,8 +349,15 @@
       context.fillStyle = "rgba(158, 158, 158, 0.5)";
       context.strokeStyle = "rgba(158, 158, 158, 0.7)";
     } else if (style === "gold") {
-      context.fillStyle = "rgba(255, 179, 0, 0.35)";
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 420);
+      const gradient = context.createLinearGradient(x, y, x, y + layout.btnH);
+      gradient.addColorStop(0, "#FFE566");
+      gradient.addColorStop(0.55, "#FFB300");
+      gradient.addColorStop(1, "#E67E00");
+      context.fillStyle = gradient;
       context.strokeStyle = "rgba(255, 240, 160, 0.85)";
+      context.shadowColor = "#FFB300";
+      context.shadowBlur = 8 + 22 * pulse;
     } else if (style === "muted") {
       context.fillStyle = "rgba(78, 107, 66, 0.55)";
       context.strokeStyle = "rgba(78, 107, 66, 0.78)";
@@ -273,6 +369,7 @@
     context.lineWidth = 2;
     context.fill();
     context.stroke();
+    context.shadowBlur = 0;
     context.fillStyle = style === "muted" ? "rgba(255, 255, 255, 0.82)" : COLOR.PLACEHOLDER_TEXT;
     context.font = `${Math.round(layout.btnH * 0.38)}px Arial, Helvetica, sans-serif`;
     context.textAlign = "center";
@@ -304,6 +401,59 @@
     drawDebugLines(context, X_LINES, true);
     drawDebugLines(context, Y_LINES, false);
     context.restore();
+  }
+
+  function createImage(src) {
+    const image = new Image();
+    image.addEventListener("load", () => {
+      window.dispatchEvent(new Event("knightPathRenderAssetLoaded"));
+    });
+    image.src = src;
+    return image;
+  }
+
+  function drawCoverImage(context, image) {
+    if (image.complete && image.naturalWidth > 0) {
+      drawImageCover(context, image, 0, 0, layout.width, layout.height);
+      return;
+    }
+    drawBackground(context);
+  }
+
+  function drawImageCover(context, image, x, y, width, height) {
+    const sourceRatio = image.naturalWidth / image.naturalHeight;
+    const targetRatio = width / height;
+    let sourceWidth = image.naturalWidth;
+    let sourceHeight = image.naturalHeight;
+    let sourceX = 0;
+    let sourceY = 0;
+
+    if (sourceRatio > targetRatio) {
+      sourceWidth = sourceHeight * targetRatio;
+      sourceX = (image.naturalWidth - sourceWidth) / 2;
+    } else {
+      sourceHeight = sourceWidth / targetRatio;
+      sourceY = (image.naturalHeight - sourceHeight) / 2;
+    }
+
+    context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
+  }
+
+  function welcomeButtonRects() {
+    return {
+      settings: buttonRect(layout.lines.x_left + layout.btnW / 2, layout.lines.y_service_mid),
+      start: buttonRect(layout.lines.x_right - layout.btnW / 2, layout.lines.y_service_mid),
+    };
+  }
+
+  function buttonRect(centerX, centerY, width) {
+    const buttonW = width || layout.btnW;
+    return {
+      x: centerX - buttonW / 2,
+      y: centerY - layout.btnH / 2,
+      w: buttonW,
+      h: layout.btnH,
+    };
   }
 
   function drawDebugLines(context, definitions, isVertical) {
@@ -342,7 +492,8 @@
     layout,
     recomputeLayout,
     drawBackground,
-    drawStaticLayout,
+    render,
     drawDebugGrid,
+    welcomeButtonRects,
   };
 })();

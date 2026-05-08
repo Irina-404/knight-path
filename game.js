@@ -24,6 +24,7 @@
   let canvas = null;
   let context = null;
   let debugMode = false;
+  let animationFrameId = null;
 
   function showCanvasFallback() {
     const fallback = document.getElementById("canvasFallback");
@@ -36,11 +37,34 @@
   }
 
   function render() {
-    window.KnightPathRender.recomputeLayout(canvas, DEFAULT_BOARD_SIZE);
-    window.KnightPathRender.drawBackground(context);
-    window.KnightPathRender.drawStaticLayout(context, DEFAULT_BOARD_SIZE);
+    const { game } = window.KnightPathState;
+    window.KnightPathRender.recomputeLayout(canvas, game.boardSize || DEFAULT_BOARD_SIZE);
+    window.KnightPathRender.render(context, game);
     if (debugMode) {
       window.KnightPathRender.drawDebugGrid(context);
+    }
+  }
+
+  function tick() {
+    render();
+    const { game } = window.KnightPathState;
+    if (game.state === "welcome" || game.state === "playing") {
+      animationFrameId = window.requestAnimationFrame(tick);
+    } else {
+      animationFrameId = null;
+    }
+  }
+
+  function ensureAnimationLoop() {
+    if (animationFrameId === null) {
+      animationFrameId = window.requestAnimationFrame(tick);
+    }
+  }
+
+  function stopAnimationLoop() {
+    if (animationFrameId !== null) {
+      window.cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
     }
   }
 
@@ -49,6 +73,34 @@
       debugMode = !debugMode;
       render();
     }
+  }
+
+  function handlePointerUp(event) {
+    const point = canvasPoint(event);
+    const { game, initGame, startGame } = window.KnightPathState;
+    if (game.state !== "welcome") return;
+
+    const buttons = window.KnightPathRender.welcomeButtonRects();
+    if (hitRect(point, buttons.start)) {
+      initGame();
+      startGame();
+      render();
+      ensureAnimationLoop();
+    }
+  }
+
+  function canvasPoint(event) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = window.KnightPathRender.layout.width / rect.width;
+    const scaleY = window.KnightPathRender.layout.height / rect.height;
+    return {
+      x: (event.clientX - rect.left) * scaleX,
+      y: (event.clientY - rect.top) * scaleY,
+    };
+  }
+
+  function hitRect(point, rect) {
+    return point.x >= rect.x && point.x <= rect.x + rect.w && point.y >= rect.y && point.y <= rect.y + rect.h;
   }
 
   function init() {
@@ -64,9 +116,13 @@
       return;
     }
 
+    window.KnightPathState.loadSettings(safeStorage);
     render();
+    ensureAnimationLoop();
     window.addEventListener("resize", render);
     window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("knightPathRenderAssetLoaded", render);
+    canvas.addEventListener("pointerup", handlePointerUp);
   }
 
   window.KnightPathGame = {

@@ -90,6 +90,8 @@ Process decisions:
 
 ## M4 — Colors per spec
 
+**Status:** Deferred — postponed until cell-state colors can be verified.
+
 **Done when:** everything is colored per UI_SPEC §3; debug mode helps verify positioning.
 
 **Tasks:**
@@ -108,18 +110,28 @@ Process decisions:
 
 ## M5a — Welcome screen
 
+**Status:** Done — confirmed by user.
+
 **Done when:** the page opens to a welcome screen; "Start game" leads to a (still inert) playing screen with the knight on `(0, 0)`.
 
 **Tasks:**
-- [ ] `state.js`: `game` object with `state = "welcome"`, settings loaded from localStorage (default: `boardSize = 5`)
-- [ ] `state.js`: `loadSettings()`, `saveSettings()`, `safeStorage` (already in `game.js` from M1 — reuse)
-- [ ] `render.js`: load `knight-path-cover.webp` as `<img>`; draw with cover-fit + dim overlay
-- [ ] `render.js`: `drawWelcome()` — title "Knight's Path", description, Settings & Rules + Start game buttons
-- [ ] `render.js`: gold button pulse animation (continuous re-render while `state === "welcome"`)
-- [ ] `state.js`: `initGame()` — set `startPos = knightPos = (0, 0)`, `path = [(0, 0)]`, `visited = {"0,0"}`, compute `availableMoves`
-- [ ] `state.js`: `startGame()` — set `state = "playing"`
-- [ ] `game.js`: click Start game → `initGame()`, `startGame()`, `render()`
-- [ ] `render.js`: `drawPlaying()` — board + service column + knight on starting cell
+- [x] `state.js`: `game` object with `state = "welcome"`, settings loaded from localStorage (default: `boardSize = 5`)
+- [x] `state.js`: `loadSettings()`, `saveSettings()`, `safeStorage` (already in `game.js` from M1 — reuse)
+- [x] `render.js`: load `knight-path-cover.webp` as `<img>`; draw with cover-fit + dim overlay
+- [x] `render.js`: `drawWelcome()` — title "Knight's Path", description, Settings & Rules + Start game buttons
+- [x] `render.js`: gold button pulse animation (continuous re-render while `state === "welcome"`)
+- [x] `state.js`: `initGame()` — set `startPos = knightPos = (0, 0)`, `path = [(0, 0)]`, `visited = {"0,0"}`, compute `availableMoves`
+- [x] `state.js`: `startGame()` — set `state = "playing"`
+- [x] `game.js`: click Start game → `initGame()`, `startGame()`, `render()`
+- [x] `render.js`: `drawPlaying()` — board + service column + knight on starting cell
+
+**M5a implementation notes:**
+- Added `state.js` and wired it before `render.js` / `game.js`.
+- Welcome uses `knight-path-cover.webp` with a dark overlay, centered title, centered description, and bottom action buttons.
+- `Start game` initializes the route at `(0, 0)` and switches directly to the playing screen.
+- The playing screen renders the knight with `knight.webp` instead of a programmatic silhouette.
+- The knight has a subtle idle breathing animation while waiting for input; no current-cell outline is drawn.
+- The header shows completed moves, so the initial game state displays `Knight's Path: Step 1 / 25`, matching the move history entry `1) a1`.
 
 **How to verify:**
 - Open the page → welcome screen with the cover image
