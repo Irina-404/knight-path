@@ -75,14 +75,28 @@
       debugMode = !debugMode;
       render();
     }
+
+    const { game, undo } = window.KnightPathState;
+    const isUndoKey = event.key.toLowerCase() === "u" || (event.ctrlKey && event.key.toLowerCase() === "z");
+    if (isUndoKey && game.state === "playing" && game.modal === null) {
+      if (undo()) {
+        event.preventDefault();
+        render();
+      }
+    }
   }
 
   function handlePointerUp(event) {
     const point = canvasPoint(event);
-    const { game, initGame, startGame, openSettings, saveSettings, move } = window.KnightPathState;
+    const { game, initGame, startGame, openSettings, saveSettings, move, undo, surrender } = window.KnightPathState;
 
     if (game.modal === "settings") {
       handleSettingsClick(point, saveSettings);
+      return;
+    }
+
+    if (game.modal === "confirmGiveUp") {
+      handleConfirmGiveUpClick(point, surrender);
       return;
     }
 
@@ -92,7 +106,7 @@
     }
 
     if (game.state === "playing") {
-      handlePlayingClick(point, move);
+      handlePlayingClick(point, move, undo);
       return;
     }
 
@@ -118,9 +132,23 @@
     }
   }
 
-  function handlePlayingClick(point, move) {
+  function handlePlayingClick(point, move, undo) {
     const { game } = window.KnightPathState;
     if (game.finishExit) {
+      return;
+    }
+
+    const buttons = window.KnightPathRender.playingButtonRects();
+    if (hitRect(point, buttons.undo)) {
+      if (undo()) {
+        render();
+      }
+      return;
+    }
+
+    if (hitRect(point, buttons.giveUp)) {
+      game.modal = "confirmGiveUp";
+      render();
       return;
     }
 
@@ -187,12 +215,40 @@
     }
   }
 
+  function handleConfirmGiveUpClick(point, surrender) {
+    const { game } = window.KnightPathState;
+    if (!modalRegions) {
+      game.modal = null;
+      render();
+      return;
+    }
+
+    if (hitRect(point, modalRegions.confirmBtn)) {
+      surrender();
+      render();
+      ensureAnimationLoop();
+      return;
+    }
+
+    if (hitRect(point, modalRegions.cancelBtn) || !hitRect(point, modalRegions.panel)) {
+      game.modal = null;
+      render();
+    }
+  }
+
   function handlePointerMove(event) {
     const point = canvasPoint(event);
     const { game, isAvailableMove } = window.KnightPathState;
 
     if (game.modal !== null || game.state !== "playing") {
       game.hoverCell = null;
+      if (game.modal === "confirmGiveUp" && modalRegions) {
+        canvas.style.cursor = (
+          hitRect(point, modalRegions.confirmBtn) ||
+          hitRect(point, modalRegions.cancelBtn)
+        ) ? "pointer" : "default";
+        return;
+      }
       canvas.style.cursor = "default";
       return;
     }
@@ -200,6 +256,16 @@
     if (game.finishExit) {
       game.hoverCell = null;
       canvas.style.cursor = "default";
+      return;
+    }
+
+    const buttons = window.KnightPathRender.playingButtonRects();
+    if (
+      (game.path && game.path.length >= 2 && hitRect(point, buttons.undo)) ||
+      hitRect(point, buttons.giveUp)
+    ) {
+      game.hoverCell = null;
+      canvas.style.cursor = "pointer";
       return;
     }
 

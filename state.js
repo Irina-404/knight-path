@@ -42,6 +42,7 @@
 
     result: null,
     solutionPath: null,
+    solutionRevealStartedAt: null,
 
     selectedHistoryStep: null,
   };
@@ -97,6 +98,7 @@
     game.modal = null;
     game.result = null;
     game.solutionPath = null;
+    game.solutionRevealStartedAt = null;
     game.selectedHistoryStep = null;
   }
 
@@ -158,6 +160,86 @@
     return true;
   }
 
+  function undo() {
+    if (
+      game.state !== "playing" ||
+      game.modal !== null ||
+      game.finishExit !== null ||
+      game.path.length < 2
+    ) {
+      return false;
+    }
+
+    const last = game.path.pop();
+    game.visited.delete(key(last));
+    const previous = game.path[game.path.length - 1];
+    game.knightPos = { x: previous.x, y: previous.y };
+    game.availableMoves = availableMovesFrom(previous.x, previous.y);
+    game.hoverCell = null;
+    game.historyScroll = Math.min(game.historyScroll || 0, Math.max(0, game.path.length - 1));
+    return true;
+  }
+
+  function surrender() {
+    game.solutionPath = solveTour(game.boardSize, 0, 0);
+    game.solutionRevealStartedAt = performance.now();
+    finishGame("surrender");
+  }
+
+  function solveTour(boardSize, startX, startY) {
+    const size = normalizeBoardSize(boardSize);
+    const total = size * size;
+    const start = { x: startX, y: startY };
+    const path = [{ x: start.x, y: start.y }];
+    const visited = new Set([key(start)]);
+
+    function inBounds(cell) {
+      return cell.x >= 0 && cell.x < size && cell.y >= 0 && cell.y < size;
+    }
+
+    function localMoves(cell) {
+      return KNIGHT_DELTAS
+        .map((delta) => ({ x: cell.x + delta.x, y: cell.y + delta.y }))
+        .filter((next) => inBounds(next) && !visited.has(key(next)));
+    }
+
+    function degree(cell) {
+      let count = 0;
+      for (const delta of KNIGHT_DELTAS) {
+        const next = { x: cell.x + delta.x, y: cell.y + delta.y };
+        if (inBounds(next) && !visited.has(key(next))) {
+          count += 1;
+        }
+      }
+      return count;
+    }
+
+    function visit(cell) {
+      if (path.length === total) {
+        return true;
+      }
+
+      const candidates = localMoves(cell).sort((a, b) => degree(a) - degree(b));
+      for (const next of candidates) {
+        path.push(next);
+        visited.add(key(next));
+        if (visit(next)) {
+          return true;
+        }
+        visited.delete(key(next));
+        path.pop();
+      }
+
+      return false;
+    }
+
+    if (!inBounds(start)) {
+      return null;
+    }
+
+    return visit(start) ? path.map((cell) => ({ x: cell.x, y: cell.y })) : null;
+  }
+
   function startFinishExit(result) {
     game.finishExit = {
       result,
@@ -197,6 +279,9 @@
     continuationCount,
     isAvailableMove,
     move,
+    undo,
+    surrender,
+    solveTour,
     isWin,
     isDeadEnd,
   };

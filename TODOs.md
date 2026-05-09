@@ -240,15 +240,23 @@ Process decisions:
 **Done when:** Undo works, Give up shows a confirm modal, and surrendering reveals one valid Knight's Tour for the current board size.
 
 **Tasks:**
-- [ ] `state.js`: `undo()` — pop last cell, restore knightPos / visited / availableMoves
-- [ ] `state.js`: `surrender()` — set `result = "surrender"`, call `solveTour(boardSize, 0, 0)`, store in `solutionPath`, transition to finished
-- [ ] `state.js`: `solveTour(boardSize, startX, startY)` — backtracking with Warnsdorff heuristic; returns ordered list of cells of length `boardSize²` or `null`
-- [ ] `render.js`: Undo button (ghost on parchment) and Give up? button (muted) in the right service column
-- [ ] `render.js`: confirm modal `drawConfirmModal(title, body, sureLabel)` matching `sea-battle` style
-- [ ] `render.js`: solution overlay on finished screen — `solutionTrail` animation, then static faint trail with small numerals in cell corners
-- [ ] `game.js`: click Undo → `undo()`; disabled when `path.length < 2`; keyboard `U` (or `Ctrl+Z`) also triggers undo
-- [ ] `game.js`: click Give up? → `modal = "confirmGiveUp"`; "Yes, sorry!" → `surrender()`; "Let me think again..." or click outside → `modal = null`
+- [x] `state.js`: `undo()` — pop last cell, restore knightPos / visited / availableMoves
+- [x] `state.js`: `surrender()` — set `result = "surrender"`, call `solveTour(boardSize, 0, 0)`, store in `solutionPath`, transition to finished
+- [x] `state.js`: `solveTour(boardSize, startX, startY)` — backtracking with Warnsdorff heuristic; returns ordered list of cells of length `boardSize²` or `null`
+- [x] `render.js`: Undo button (ghost on parchment) and Give up? button (muted) in the right service column
+- [x] `render.js`: confirm modal `drawConfirmModal(title, body, sureLabel)` matching `sea-battle` style
+- [x] `render.js`: solution overlay on finished screen — `solutionTrail` animation, then static faint trail with small numerals in cell corners
+- [x] `game.js`: click Undo → `undo()`; disabled when `path.length < 2`; keyboard `U` (or `Ctrl+Z`) also triggers undo
+- [x] `game.js`: click Give up? → `modal = "confirmGiveUp"`; "Yes, sorry!" → `surrender()`; "Let me think again..." or click outside → `modal = null`
 - [x] Removed temporary "→ Finish" button from M5c
+
+**Status:** Done — confirmed by user.
+
+**Implemented changes:**
+- Undo is wired to the right-column button, `U`, and `Ctrl+Z`; it restores the knight position, visited set, available moves, hover state, and history scroll.
+- Give up opens a Sea Battle-style confirmation modal; cancel/outside click returns to the current game, confirm finishes as surrender.
+- Surrender computes a live Warnsdorff/backtracking tour from `a1` for board sizes 5..8 and stores it as `solutionPath`.
+- The surrender finished screen clears the player's partial path and animates the solution trail on a clean board, with large bright step numbers.
 
 **M7 implementation notes:**
 
@@ -263,7 +271,7 @@ Process decisions:
 - Click Give up? → confirm modal appears
 - "Let me think again..." → modal closes, game continues from the same position
 - "Yes, sorry!" → finished screen with "No worries! / Here is one possible path."; the solution trail animates over the board
-- After the trail completes, faint trail and small numerals remain visible alongside the player's own step numbers
+- After the trail completes, the solution trail remains visible on a clean board with large bright step numbers
 - Surrender on each of 5×5, 6×6, 7×7, 8×8 → a full valid tour is shown each time
 
 ---

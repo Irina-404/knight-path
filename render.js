@@ -35,6 +35,8 @@
     WIN_HINT_SHIMMER: "rgba(255, 211, 64, 0.55)",
     CROWN_GOLD: "#FFD700",
     CROWN_GOLD_DARK: "#B77900",
+    SOLUTION_TRAIL: "rgba(255, 215, 96, 0.70)",
+    SOLUTION_TRAIL_SOFT: "rgba(255, 245, 190, 0.62)",
   };
 
   const DEFAULT_BOARD_SIZE = 5;
@@ -154,6 +156,15 @@
       return drawSettingsPanel(context, game);
     }
 
+    if (game.modal === "confirmGiveUp") {
+      return drawConfirmModal(
+        context,
+        "Give up?",
+        "You will see one possible path from the start.",
+        "Yes, sorry!",
+      );
+    }
+
     return null;
   }
 
@@ -206,8 +217,12 @@
   }
 
   function drawFinished(context, game) {
-    drawBoard(context, game.boardSize || DEFAULT_BOARD_SIZE, game, true);
-    drawPlayerPath(context, game, false);
+    const showPlayerPath = game.result !== "surrender";
+    drawBoard(context, game.boardSize || DEFAULT_BOARD_SIZE, showPlayerPath ? game : null, true);
+    if (showPlayerPath) {
+      drawPlayerPath(context, game, false);
+    }
+    drawSolutionOverlay(context, game);
     drawBoardGrid(context, game.boardSize || DEFAULT_BOARD_SIZE);
     if (game.state === "playing" && game.knightPos) {
       drawKnight(context, game.knightPos, game.boardSize || DEFAULT_BOARD_SIZE);
@@ -442,11 +457,13 @@
     const centerX = x + w / 2;
     const headerY = (layout.lines.y_top + layout.lines.y_header) / 2;
     const panel = historyPanelRect();
+    const buttons = playingButtonRects();
+    const undoDisabled = !game.path || game.path.length < 2 || Boolean(game.finishExit);
 
     context.save();
-    drawButton(context, "Undo", centerX, headerY, "ghost", false, w);
+    drawButton(context, "Undo", centerX, headerY, "ghost", undoDisabled, w);
     drawMoveHistory(context, panel, game);
-    drawButton(context, "Give up?", centerX, (layout.lines.y_service_mid + layout.lines.y_bottom) / 2, "muted", false, panel.w);
+    drawButton(context, "Give up?", buttons.giveUp.x + buttons.giveUp.w / 2, buttons.giveUp.y + buttons.giveUp.h / 2, "muted", Boolean(game.finishExit), panel.w);
     context.restore();
   }
 
@@ -601,6 +618,62 @@
     context.save();
     context.fillStyle = COLOR.HINT_HOVER;
     context.fillRect(rect.x, rect.y, rect.w, rect.h);
+    context.restore();
+  }
+
+  function drawSolutionOverlay(context, game) {
+    const path = game.solutionPath || [];
+    if (game.result !== "surrender" || path.length < 2) {
+      return;
+    }
+
+    const startedAt = game.solutionRevealStartedAt || performance.now();
+    const elapsed = Math.max(0, performance.now() - startedAt);
+    const visibleCount = Math.min(path.length, Math.floor(elapsed / 80) + 1);
+    const boardSize = game.boardSize || DEFAULT_BOARD_SIZE;
+    const centers = path.slice(0, visibleCount).map((cell) => cellCenter(cell, boardSize));
+    const completed = visibleCount === path.length;
+
+    context.save();
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.strokeStyle = COLOR.SOLUTION_TRAIL;
+    context.lineWidth = Math.max(3, layout.cellSize * 0.055);
+    context.shadowColor = "#FFD700";
+    context.shadowBlur = completed ? 8 : 14;
+    context.beginPath();
+    for (let index = 0; index < centers.length; index += 1) {
+      const point = centers[index];
+      if (index === 0) {
+        context.moveTo(point.x, point.y);
+      } else {
+        context.lineTo(point.x, point.y);
+      }
+    }
+    context.stroke();
+    context.shadowBlur = 0;
+
+    const labelSize = Math.round(layout.cellSize * 0.36);
+    context.font = `bold ${labelSize}px Arial, Helvetica, sans-serif`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillStyle = COLOR.STEP_NUMBER;
+    context.shadowColor = "rgba(0, 0, 0, 0.45)";
+    context.shadowBlur = 4;
+    for (let index = 0; index < visibleCount; index += 1) {
+      const center = centers[index];
+      context.fillText(String(index + 1), center.x, center.y);
+    }
+    context.shadowBlur = 0;
+
+    if (!completed) {
+      const active = centers[centers.length - 1];
+      context.fillStyle = "rgba(255, 215, 96, 0.24)";
+      context.beginPath();
+      context.arc(active.x, active.y, layout.cellSize * 0.28, 0, Math.PI * 2);
+      context.fill();
+    }
+
     context.restore();
   }
 
@@ -941,6 +1014,71 @@
     context.fillText(label, x + width / 2, y + height / 2);
   }
 
+  function drawConfirmModal(context, title, body, sureLabel) {
+    const pad = layout.btnH * 0.38;
+    const titleSize = Math.round(layout.btnH * 0.44);
+    const bodySize = Math.round(layout.btnH * 0.32);
+    const btnGap = layout.btnH * 0.22;
+    const modalBtnW = layout.btnW * 1.6;
+    const panelW = modalBtnW + pad * 2;
+    const bodyLines = wrapTextForWidth(context, body, modalBtnW, bodySize);
+    const bodyH = bodyLines.length * bodySize * 1.35;
+    const panelH = pad + titleSize * 1.4 + bodyH + pad + layout.btnH + btnGap + layout.btnH + pad;
+    const panelX = layout.lines.x_center - panelW / 2;
+    const centerY = (layout.lines.y_top + layout.lines.y_bottom) / 2;
+    const panelY = Math.round(centerY - panelH / 2);
+    const panelR = Math.round(layout.btnH * 0.18);
+
+    context.save();
+    context.fillStyle = "rgba(0, 0, 0, 0.52)";
+    context.fillRect(0, 0, layout.width, layout.height);
+
+    drawRoundRect(context, panelX, panelY, panelW, panelH, panelR);
+    context.fillStyle = COLOR.MODAL_BG;
+    context.fill();
+    context.strokeStyle = COLOR.MODAL_BORDER;
+    context.lineWidth = 2.5;
+    context.stroke();
+
+    let y = panelY + pad;
+    context.textAlign = "center";
+    context.textBaseline = "top";
+    context.font = `bold ${titleSize}px Arial, Helvetica, sans-serif`;
+    context.fillStyle = COLOR.MODAL_DARK;
+    context.fillText(title, layout.lines.x_center, y);
+    y += titleSize * 1.4;
+
+    context.font = `${bodySize}px Arial, Helvetica, sans-serif`;
+    context.fillStyle = COLOR.MODAL_BODY;
+    for (const line of bodyLines) {
+      context.fillText(line, layout.lines.x_center, y);
+      y += bodySize * 1.35;
+    }
+    y += pad;
+
+    const confirmBtnY = y;
+    const cancelBtnY = y + layout.btnH + btnGap;
+
+    drawButton(context, sureLabel, layout.lines.x_center, confirmBtnY + layout.btnH / 2, "gold", false, modalBtnW);
+    drawButton(context, "Let me think again...", layout.lines.x_center, cancelBtnY + layout.btnH / 2, "ghost", false, modalBtnW);
+
+    context.restore();
+
+    return {
+      panel: { x: panelX, y: panelY, w: panelW, h: panelH },
+      confirmBtn: { x: layout.lines.x_center - modalBtnW / 2, y: confirmBtnY, w: modalBtnW, h: layout.btnH },
+      cancelBtn: { x: layout.lines.x_center - modalBtnW / 2, y: cancelBtnY, w: modalBtnW, h: layout.btnH },
+    };
+  }
+
+  function wrapTextForWidth(context, text, maxWidth, fontSize) {
+    context.save();
+    context.font = `${fontSize}px Arial, Helvetica, sans-serif`;
+    const lines = wrapText(context, text, maxWidth);
+    context.restore();
+    return lines;
+  }
+
   function wrapText(context, text, maxWidth) {
     const words = text.split(" ");
     const lines = [];
@@ -1061,6 +1199,16 @@
     };
   }
 
+  function playingButtonRects() {
+    const w = layout.lines.x_right - layout.lines.x_col_left;
+    const centerX = layout.lines.x_col_left + w / 2;
+    const panel = historyPanelRect();
+    return {
+      undo: buttonRect(centerX, (layout.lines.y_top + layout.lines.y_header) / 2, w),
+      giveUp: buttonRect(centerX, (layout.lines.y_service_mid + layout.lines.y_bottom) / 2, panel.w),
+    };
+  }
+
   function boardCellRect(x, y, boardSize) {
     const size = boardSize || layout.boardSize || DEFAULT_BOARD_SIZE;
     const screenY = size - 1 - y;
@@ -1157,7 +1305,9 @@
     render,
     drawDebugGrid,
     drawSettingsPanel,
+    drawConfirmModal,
     welcomeButtonRects,
+    playingButtonRects,
     finishedButtonRects,
     historyPanelRect,
     boardCellRect,
