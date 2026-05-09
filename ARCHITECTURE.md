@@ -99,10 +99,11 @@ User settings are stored in `localStorage` under these keys:
 |-----|--------|---------|
 | `knightPath_boardSize` | `5..8` | `5` |
 | `knightPath_showCounts` | `"on"` / `"off"` | `"on"` |
+| `knightPath_soundEnabled` | `"on"` / `"off"` | `"on"` |
 
 Game progress (current path, visited cells) is **not persisted**. A page reload returns the game to the welcome screen.
 
-Falls back to an in-memory object if `localStorage` is unavailable (private browsing). Values are validated and clamped on load: `boardSize` must be one of `5 | 6 | 7 | 8`, `showCounts` is parsed from `"on"` / `"off"` (any other string falls back to `"on"`).
+Falls back to an in-memory object if `localStorage` is unavailable (private browsing). Values are validated and clamped on load: `boardSize` must be one of `5 | 6 | 7 | 8`, `showCounts` and `soundEnabled` are parsed from `"on"` / `"off"` (any other string falls back to `"on"`).
 
 ```js
 const safeStorage = {
@@ -117,7 +118,7 @@ const safeStorage = {
 All sounds are synthesized via the Web Audio API — no audio files needed.
 `AudioContext` is created lazily on the first user gesture inside the iframe (browser autoplay policy). Gestures in the parent page do not count.
 
-A future `Sound: On / Off` setting will gate the synth functions; in V1 sound is always on.
+The `Sound: On / Off` setting gates all synth functions. When sound is Off, `AudioContext` is not created/resumed and playback is skipped.
 
 | Trigger | Sound |
 |---------|-------|

@@ -4,11 +4,13 @@
   const STORAGE_KEYS = {
     boardSize: "knightPath_boardSize",
     showCounts: "knightPath_showCounts",
+    soundEnabled: "knightPath_soundEnabled",
   };
 
   const DEFAULT_SETTINGS = {
     boardSize: 5,
     showCounts: true,
+    soundEnabled: true,
   };
 
   const KNIGHT_DELTAS = [
@@ -28,8 +30,10 @@
 
     boardSize: DEFAULT_SETTINGS.boardSize,
     showCounts: DEFAULT_SETTINGS.showCounts,
+    soundEnabled: DEFAULT_SETTINGS.soundEnabled,
     pendingBoardSize: DEFAULT_SETTINGS.boardSize,
     pendingShowCounts: DEFAULT_SETTINGS.showCounts,
+    pendingSoundEnabled: DEFAULT_SETTINGS.soundEnabled,
 
     knightPos: null,
     startPos: null,
@@ -63,24 +67,35 @@
     return DEFAULT_SETTINGS.showCounts;
   }
 
+  function normalizeSoundEnabled(value) {
+    if (value === "on") return true;
+    if (value === "off") return false;
+    return DEFAULT_SETTINGS.soundEnabled;
+  }
+
   function loadSettings(storage) {
     game.boardSize = normalizeBoardSize(storage.get(STORAGE_KEYS.boardSize));
     game.showCounts = normalizeShowCounts(storage.get(STORAGE_KEYS.showCounts));
+    game.soundEnabled = normalizeSoundEnabled(storage.get(STORAGE_KEYS.soundEnabled));
     game.pendingBoardSize = game.boardSize;
     game.pendingShowCounts = game.showCounts;
+    game.pendingSoundEnabled = game.soundEnabled;
   }
 
   function openSettings() {
     game.pendingBoardSize = game.boardSize;
     game.pendingShowCounts = game.showCounts;
+    game.pendingSoundEnabled = game.soundEnabled;
     game.modal = "settings";
   }
 
   function saveSettings(storage) {
     game.boardSize = normalizeBoardSize(game.pendingBoardSize);
     game.showCounts = Boolean(game.pendingShowCounts);
+    game.soundEnabled = Boolean(game.pendingSoundEnabled);
     storage.set(STORAGE_KEYS.boardSize, String(game.boardSize));
     storage.set(STORAGE_KEYS.showCounts, game.showCounts ? "on" : "off");
+    storage.set(STORAGE_KEYS.soundEnabled, game.soundEnabled ? "on" : "off");
     game.modal = null;
     game.state = "welcome";
   }

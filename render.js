@@ -1006,13 +1006,13 @@
     const saveX = layout.lines.x_center - saveW / 2;
     const saveY = panelBottom - pad - saveH;
     const naturalSettingsTop = y + pad * 0.70;
-    const maxSectionH = Math.max(rowH * 1.35, layout.btnH * 1.28);
-    const settingsAreaH = maxSectionH * 2;
     const settingsTop = naturalSettingsTop;
-    const settingsBottom = settingsTop + settingsAreaH;
-    const sectionH = settingsAreaH / 2;
+    const settingsBottomLimit = saveY - pad * 0.80;
+    const maxSectionH = Math.max(rowH * 1.22, layout.btnH * 1.12);
+    const settingsAreaH = Math.min(maxSectionH * 3, Math.max(rowH * 3.35, settingsBottomLimit - settingsTop));
+    const sectionH = settingsAreaH / 3;
 
-    for (let index = 0; index <= 2; index += 1) {
+    for (let index = 0; index <= 3; index += 1) {
       drawSettingDivider(context, dividerX, dividerW, settingsTop + sectionH * index);
     }
 
@@ -1028,6 +1028,13 @@
       [false, "Off"],
       [true, "On"],
     ], pending.pendingShowCounts, controlLeft, controlRight, y - rowH / 2, rowH);
+
+    y = settingsTop + sectionH * 2.5;
+    drawSettingTextBlock(context, "Sound", "Play sounds during the game.", labelX, y, labelSize, hintSize, hintLineH);
+    drawToggleRow(context, regions, "pendingSoundEnabled", [
+      [false, "Off"],
+      [true, "On"],
+    ], pending.pendingSoundEnabled, controlLeft, controlRight, y - rowH / 2, rowH);
 
     drawModalButton(context, "Save & Close", saveX, saveY, saveW, saveH);
     regions.saveBtn = { x: saveX, y: saveY, w: saveW, h: saveH };

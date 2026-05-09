@@ -137,7 +137,7 @@ Process decisions:
 - Open the page → welcome screen with the cover image
 - Click Start game → switch to playing screen with knight on the bottom-left cell
 - Reload the page → welcome again
-- Sound is not requested yet (`AudioContext` not created)
+- At this stage sound is not requested yet (`AudioContext` lands in M8)
 
 ---
 
@@ -145,29 +145,33 @@ Process decisions:
 
 **Status:** Done — implemented and reviewed.
 
-**Done when:** opening Settings shows the panel with the board-size spinner and the continuation-hints toggle; both values save to localStorage.
+**Done when:** opening Settings shows the panel with the board-size spinner, continuation-hints toggle, and sound toggle; all values save to localStorage.
 
 **Tasks:**
-- [x] `render.js`: `drawSettingsPanel(pending)` — full-width parchment panel with rules, board-size spinner, continuation-hints toggle, Save & Close button
+- [x] `render.js`: `drawSettingsPanel(pending)` — full-width parchment panel with rules, board-size spinner, continuation-hints toggle, sound toggle, Save & Close button
 - [x] `render.js`: spinner control (▲▼) for board size, range 5..8
 - [x] `render.js`: on/off toggle control for `Continuation hints` (same style as `sea-battle` toggles); hint text under the toggle: "Show how many continuations each move has."
+- [x] `render.js`: on/off toggle control for `Sound`; hint text under the toggle: "Play sounds during the game."
 - [x] `state.js`: `loadSettings()` parses `knightPath_showCounts` from `"on"` / `"off"`, defaults to `true`, validates
 - [x] `state.js`: `saveSettings()` writes `knightPath_showCounts` as `"on"` / `"off"`
-- [x] `game.js`: click Settings & Rules → `modal = "settings"`, copy `boardSize`, `showCounts` into `pendingBoardSize`, `pendingShowCounts`
-- [x] `game.js`: clicks inside the panel update `pendingBoardSize` and `pendingShowCounts`
-- [x] `game.js`: click Save & Close → write `pendingBoardSize` and `pendingShowCounts` into `game.boardSize`, `game.showCounts`, persist via `safeStorage`, close modal, `state = "welcome"`
+- [x] `state.js`: `loadSettings()` / `saveSettings()` parse and write `knightPath_soundEnabled` as `"on"` / `"off"`
+- [x] `game.js`: click Settings & Rules → `modal = "settings"`, copy `boardSize`, `showCounts`, `soundEnabled` into pending settings
+- [x] `game.js`: clicks inside the panel update `pendingBoardSize`, `pendingShowCounts`, and `pendingSoundEnabled`
+- [x] `game.js`: click Save & Close → write pending settings into `game.boardSize`, `game.showCounts`, `game.soundEnabled`, persist via `safeStorage`, close modal, `state = "welcome"`
 - [x] `game.js`: click outside the panel → ignored (per spec)
 
 **M5b implementation notes:**
 - Settings panel style and interaction model follow `sea-battle`: parchment panel over a dim overlay, section dividers, spinner arrows, segmented toggle, and centered `Save & Close`.
 - `Continuation hints` is wired into state and persistence now; the visible gameplay effect of hiding candidate shimmer/counts lands in M6 when hints are rendered.
+- `Sound` was added after M8 introduced Web Audio effects; when Off, no AudioContext is created/resumed and synth playback is skipped.
 
 **How to verify:**
 - Welcome → Settings opens panel with both controls visible
 - Change board size, Save & Close → panel closes, board size in next game reflects new value
 - Toggle Continuation hints to Off, Save & Close → next game's board is clean: candidate cells receive no shimmer, no numerals, and no red highlight on traps
 - Toggle back to On, Save & Close → turquoise shimmer with numerals reappears on candidate cells; red shimmer reappears on `0`-count traps
-- Reload page → both values restored from localStorage (`knightPath_boardSize`, `knightPath_showCounts`)
+- Toggle Sound to Off, Save & Close → gameplay remains silent; toggle back On → sounds play again
+- Reload page → values restored from localStorage (`knightPath_boardSize`, `knightPath_showCounts`, `knightPath_soundEnabled`)
 - Corrupt the localStorage value (e.g., set `knightPath_showCounts = "garbage"` in DevTools), reload → falls back to On
 - Open Settings from finished screen later (see M5c) → Save & Close lands on welcome
 

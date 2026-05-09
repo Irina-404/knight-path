@@ -88,7 +88,7 @@
   }
 
   function handlePointerUp(event) {
-    resumeAudio();
+    resumeAudioIfEnabled();
     const point = canvasPoint(event);
     const { game, initGame, startGame, openSettings, saveSettings, move, undo, surrender } = window.KnightPathState;
 
@@ -413,7 +413,7 @@
   }
 
   function playToneSequence(notes) {
-    const audio = resumeAudio();
+    const audio = resumeAudioIfEnabled();
     if (!audio) {
       return;
     }
@@ -438,7 +438,12 @@
     }
   }
 
-  function resumeAudio() {
+  function resumeAudioIfEnabled() {
+    const { game } = window.KnightPathState;
+    if (!game.soundEnabled) {
+      return null;
+    }
+
     try {
       if (!audioContext) {
         const AudioCtor = window.AudioContext || window.webkitAudioContext;

@@ -50,10 +50,12 @@ game {
   // Settings (persisted in localStorage)
   boardSize: BoardSize
   showCounts: bool                 // Warnsdorff hint toggle; default true
+  soundEnabled: bool               // Audio toggle; default true
 
   // Pending settings (edited inside settings modal, not yet saved)
   pendingBoardSize: BoardSize
   pendingShowCounts: bool
+  pendingSoundEnabled: bool
 
   // Playing state (cleared on initGame)
   knightPos: Cell                  // current knight cell
@@ -137,7 +139,7 @@ When `game.showCounts === false`, candidate cells receive **no visual treatment 
 ```
 on page load:
   state = "welcome"
-  loadSettings()   // boardSize and showCounts from localStorage; defaults below
+  loadSettings()   // boardSize, showCounts, and soundEnabled from localStorage; defaults below
 ```
 
 Defaults if nothing stored:
@@ -145,9 +147,10 @@ Defaults if nothing stored:
 ```
 boardSize  = 5
 showCounts = true
+soundEnabled = true
 ```
 
-`boardSize` is validated to one of `5 | 6 | 7 | 8` on load; any invalid value falls back to the default. `showCounts` is parsed from the strings `"on"` / `"off"`; any other value falls back to `true`.
+`boardSize` is validated to one of `5 | 6 | 7 | 8` on load; any invalid value falls back to the default. `showCounts` and `soundEnabled` are parsed from the strings `"on"` / `"off"`; any other value falls back to `true`.
 
 Transitions:
 
@@ -317,6 +320,7 @@ confirmGiveUp modal
 settings modal
   ├─ change Board size spinner       → pendingBoardSize updated
   ├─ toggle Continuation hints       → pendingShowCounts updated
+  ├─ toggle Sound                    → pendingSoundEnabled updated
   └─ Save & Close                    → saveSettings(), modal = null, state = "welcome"
 
 finished
@@ -354,6 +358,7 @@ Displayed on the finished screen (two lines):
 Sound on result:
 - `win` → ascending arpeggio C4-E4-G4-C5
 - `deadEnd`, `surrender` → two descending tones G4-C4
+- If `soundEnabled === false`, result sounds are skipped.
 
 ---
 
