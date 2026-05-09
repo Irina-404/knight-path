@@ -99,7 +99,7 @@ Process decisions:
 - [ ] `render.js`: `drawCell(cell, x, y)` — fill depends on cell visual state (board-light / board-dark / visited / current / candidate / dead-candidate)
 - [ ] `render.js`: `drawBoard()` — bronze frame + chess checkerboard with `BOARD_GRID` separators
 - [ ] `render.js`: `drawButton()` — three styles: gold, ghost, give-up; parchment-friendly ghost variant for service column
-- [ ] `render.js`: `drawKnight(ctx, cx, cy, size)` — programmatic bronze knight silhouette (placeholder shape OK in this milestone, refined later)
+- [ ] `render.js`: `drawKnight(ctx, cx, cy, size)` — draws the preloaded `knight.webp` sprite into the cell at `~0.80 * cellSize`, preserving aspect ratio. No cell-level glow or ring around the knight; the sprite alone marks the position.
 
 **How to verify:**
 - Open in browser → colors match UI_SPEC §3 (compare hex values)
@@ -143,20 +143,26 @@ Process decisions:
 
 ## M5b — Settings modal
 
-**Done when:** opening Settings shows the panel with the board size spinner; value saves to localStorage.
+**Done when:** opening Settings shows the panel with the board-size spinner and the continuation-hints toggle; both values save to localStorage.
 
 **Tasks:**
-- [ ] `render.js`: `drawSettingsPanel(pending)` — full-width parchment panel with rules, board-size spinner, Save & Close button
+- [ ] `render.js`: `drawSettingsPanel(pending)` — full-width parchment panel with rules, board-size spinner, continuation-hints toggle, Save & Close button
 - [ ] `render.js`: spinner control (▲▼) for board size, range 5..8
-- [ ] `game.js`: click Settings & Rules → `modal = "settings"`, copy current settings into `pending*`
-- [ ] `game.js`: clicks inside the panel update `pendingBoardSize`
-- [ ] `game.js`: click Save & Close → write `pendingBoardSize` into `game.boardSize`, persist via `safeStorage`, close modal, `state = "welcome"`
+- [ ] `render.js`: on/off toggle control for `Continuation hints` (same style as `sea-battle` toggles); hint text under the toggle: "Show how many continuations each move has."
+- [ ] `state.js`: `loadSettings()` parses `knightPath_showCounts` from `"on"` / `"off"`, defaults to `true`, validates
+- [ ] `state.js`: `saveSettings()` writes `knightPath_showCounts` as `"on"` / `"off"`
+- [ ] `game.js`: click Settings & Rules → `modal = "settings"`, copy `boardSize`, `showCounts` into `pendingBoardSize`, `pendingShowCounts`
+- [ ] `game.js`: clicks inside the panel update `pendingBoardSize` and `pendingShowCounts`
+- [ ] `game.js`: click Save & Close → write `pendingBoardSize` and `pendingShowCounts` into `game.boardSize`, `game.showCounts`, persist via `safeStorage`, close modal, `state = "welcome"`
 - [ ] `game.js`: click outside the panel → ignored (per spec)
 
 **How to verify:**
-- Welcome → Settings opens panel
+- Welcome → Settings opens panel with both controls visible
 - Change board size, Save & Close → panel closes, board size in next game reflects new value
-- Reload page → value restored from localStorage
+- Toggle Continuation hints to Off, Save & Close → next game's board is clean: candidate cells receive no shimmer, no numerals, and no red highlight on traps
+- Toggle back to On, Save & Close → turquoise shimmer with numerals reappears on candidate cells; red shimmer reappears on `0`-count traps
+- Reload page → both values restored from localStorage (`knightPath_boardSize`, `knightPath_showCounts`)
+- Corrupt the localStorage value (e.g., set `knightPath_showCounts = "garbage"` in DevTools), reload → falls back to On
 - Open Settings from finished screen later (see M5c) → Save & Close lands on welcome
 
 ---
@@ -187,19 +193,25 @@ Process decisions:
 - [ ] `state.js`: `continuationCount(C)` — Warnsdorff degree of `C` against `visited ∪ {C}`
 - [ ] `state.js`: `move(x, y)` — push to path, update visited / knightPos / availableMoves, run end-check (`isWin` first, then `isDeadEnd`), call `finishGame` when due
 - [ ] `state.js`: `isWin()`, `isDeadEnd()`
-- [ ] `render.js`: candidate cell highlight (`HINT_GLOW` ring) and continuation count numeral on each candidate
-- [ ] `render.js`: zero-count cells use `DEAD_HINT_GLOW` red ring + `0` numeral
-- [ ] `render.js`: visited cells with step number; knight sprite at `knightPos` with `CURRENT_GLOW`
+- [ ] `render.js`: candidate cell shimmer — pulsating turquoise `HINT_SHIMMER` overlay (alpha `0.25 ↔ 0.55`, blur `8 ↔ 22 px`, ~1.5 s sinusoid synced with the gold-button pulse) — only when `game.showCounts === true`. When `showCounts === false`, candidate cells receive **no visual treatment at all** (no shimmer, no number, no red).
+- [ ] `render.js`: continuation count numeral drawn over the shimmer in `HINT_NUMBER` color — only when `game.showCounts === true`
+- [ ] `render.js`: zero-count cells use red `DEAD_HINT_SHIMMER` overlay + `0` numeral in `DEAD_HINT_NUMBER` — only when `game.showCounts === true`
+- [ ] `render.js`: shimmer phase is global (single `t = (now / 1500) * 2π` source) so all candidate cells pulse in sync, not phase-shifted per cell
+- [ ] `render.js`: visited cells with step number; knight sprite at `knightPos` (no extra glow on the cell — the sprite itself marks the position)
 - [ ] `render.js`: step counter / squares-left labels in the right service column
 - [ ] `game.js`: click on board cell → if in `availableMoves`, call `move(x, y)`; else play soft negative tone (sound stubbed in this milestone, real synth in M8)
-- [ ] `game.js`: hover highlight on candidate cells; cursor switches between `pointer` / `default`
+- [ ] `game.js`: hover on candidate cells switches cursor to `pointer` regardless of `showCounts`; visible brightness bump (`HINT_HOVER`) only when `showCounts === true`. Non-candidate cells: cursor `default`, no highlight.
 
 **M6 implementation notes:** keep the temporary "→ Finish" button from M5c until M7 ships the proper Give up flow.
 
 **How to verify:**
-- Start game → knight on `(0, 0)`, candidate cells show counts, no zeros (yet)
+- Start game with hints On → knight on `(0, 0)`, candidate cells shimmer in turquoise with continuation counts, no zeros (yet); pulse rhythm matches the gold-button pulse on the welcome screen
 - Click a candidate → knight moves, step number `2` appears on the previous cell, new candidates and counts shown
 - Click a non-candidate → nothing happens (sound comes in M8)
+- Make a sequence of moves that creates a `0`-count candidate → that cell shimmers red with a `0` numeral
+- Set hints to Off in settings, start a new game → board is clean: only the knight, the checkerboard, and (after the first move) step numbers are visible; no shimmer, no numerals, no red highlights anywhere
+- In hints-Off mode, hover over a candidate cell → cursor changes to `pointer` but the cell does **not** brighten; clicks still work
+- In hints-Off mode, intentionally step into a cell that would have been a `0` → it accepts the click and the next state is a dead end (game ends correctly without prior visual warning)
 - Play out a full 5×5 tour → "Well done! / The knight found the path!" on finished screen
 - Trap yourself on 5×5 (e.g., make poor choices) → "Dead end! / The knight is trapped." on finished screen
 
@@ -247,7 +259,7 @@ Process decisions:
 - [ ] `render.js`: `moveFlash`, `undoFade`, `deadEndPulse`, `victory`, `defeat` effects
 - [ ] `render.js`: `solutionTrail` effect (animates the surrender solution; M7 placeholder replaced with real animation)
 - [ ] `render.js`: target hover highlight on candidate cells (already shown in M6 — this milestone only adds the moveFlash on click)
-- [ ] `render.js`: refined `drawKnight` — bronze gradient + outline silhouette, polished from the M4 placeholder
+- [ ] `render.js`: knight idle breathing animation — small sinusoidal scale around `1.0` (period ~2 s) while `state === "playing"` and no input animation is active, so the knight feels alive without a glowing cell
 - [ ] `game.js`: AudioContext created lazily on first user gesture inside the iframe
 - [ ] `game.js`: synth functions for wooden knight click, soft negative tone, reverse tone (undo), victory arpeggio, defeat tones
 - [ ] `game.js`: input blocked while a board-mutating animation (`moveFlash`, `undoFade`) is running
@@ -272,13 +284,13 @@ Process decisions:
 - [ ] Resize: change window size during welcome, playing, finished — layout recomputes, state preserved
 - [ ] Touch: tap-to-move, Undo, Give up?, settings spinner work in DevTools touch emulation and on a real phone
 - [ ] iframe: embed in a host page at 800×600 and smaller; verify aspect ratio + letterbox
-- [ ] localStorage: settings round-trip (set, reload, verify) for `boardSize`
+- [ ] localStorage: settings round-trip (set, reload, verify) for both `knightPath_boardSize` and `knightPath_showCounts`
 - [ ] Animations: timings feel right; nothing blocks input longer than expected
 - [ ] Debug keys: `D` and `I` do not collide with gameplay shortcuts (`U` for undo is the only game-level shortcut; check it is not the same key elsewhere in the series)
 - [ ] Visual polish: bronze frames, parchment service column and modals, gold buttons match `puzzle-coins` and `sea-battle` so the games feel like one series
 - [ ] Strings: every piece of UI text is in `strings.en` so future localization is mechanical
 - [ ] Production build: ensure debug handlers are not registered by default
-- [ ] Knight sprite: review the programmatic silhouette against the cover art aesthetic; replace with raster asset if needed (single point of change in `drawKnight`)
+- [ ] Knight sprite: visual review of `knight.webp` against the cover art and the bronze/parchment board on every board size (5×5..8×8); swap the asset if needed — `drawKnight` is the single point of change
 
 ---
 
@@ -320,7 +332,7 @@ Process decisions:
 - `drawDebugInfo()` (I key)
 - `drawCell(x, y)` — checkerboard base + visited / current / candidate / dead-candidate overlay
 - `drawBoard()` with frame
-- `drawKnight(ctx, cx, cy, size)` — bronze knight silhouette (single point of change for future raster swap)
+- `drawKnight(ctx, cx, cy, size)` — draws the preloaded `knight.webp` sprite at `~0.80 * cellSize`, preserves aspect ratio, no cell-level glow (single point of change if the sprite is ever swapped)
 - `drawStepNumber(x, y, n)` (visited cells)
 - `drawContinuationCount(x, y, n)` (candidate cells; red variant for `0`)
 - `drawServiceColumn()` — parchment strip + step counter + Undo + Give up?
@@ -329,7 +341,7 @@ Process decisions:
 - `drawWelcome()` (with cover image + dim overlay)
 - `drawPlaying()` (board + service column + header)
 - `drawFinished()` (board with player path + solution overlay if surrender + result message + buttons)
-- `drawSettingsPanel(pending)` with spinner
+- `drawSettingsPanel(pending)` with board-size spinner and continuation-hints toggle
 - `drawConfirmModal(title, body, sureLabel)`
 - `drawToast(text)`
 - `drawTargetHover(cell)`
@@ -342,7 +354,7 @@ Process decisions:
 <summary>game.js</summary>
 
 - Canvas setup + resize listener
-- Image preload for `knight-path-cover.webp`
+- Image preload for `knight-path-cover.webp` and `knight.webp`
 - AudioContext lazy creation on first gesture
 - Synth functions: wooden knight click, soft negative tone, reverse tone, victory arpeggio, defeat tones — all stubbed in M6, real synthesis in M8
 - Hit-test helpers: `hitButton`, `hitBoardCell`, `hitMenuButton`

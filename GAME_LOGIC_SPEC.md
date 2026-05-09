@@ -49,9 +49,11 @@ game {
 
   // Settings (persisted in localStorage)
   boardSize: BoardSize
+  showCounts: bool                 // Warnsdorff hint toggle; default true
 
   // Pending settings (edited inside settings modal, not yet saved)
   pendingBoardSize: BoardSize
+  pendingShowCounts: bool
 
   // Playing state (cleared on initGame)
   knightPos: Cell                  // current knight cell
@@ -65,7 +67,6 @@ game {
   solutionPath: Cell[] | null      // populated only when result === "surrender"
 
   // Reserved for future extensions, not used in V1
-  showCounts: bool                 // hint toggle; always true in V1
   selectedHistoryStep: integer | null  // selected step in optional history list; always null in V1
 }
 ```
@@ -121,7 +122,11 @@ Special values shown to the player:
 - `0` → cell is a trap: entering it ends the game in a dead end (unless it is the final cell needed for a win)
 - `1..8` → number of follow-up moves the knight will have from `C`
 
-The render layer paints `0`-cells with a red highlight; non-zero counts are drawn as numerals on the candidate cell.
+When `game.showCounts === true`, the render layer paints each candidate cell with a soft turquoise shimmer (same pulse rhythm as the gold `Start game` button) and draws the continuation count over it. Cells whose count is `0` use a red shimmer instead of turquoise.
+
+When `game.showCounts === false`, candidate cells receive **no visual treatment at all** — no shimmer, no number, no red trap warning. The board is clean: only the knight, the visited cells with step numbers, and the empty cells of the checkerboard are visible. The player must work out reachable cells in their head. The toggle does not affect game logic; it only suppresses rendering.
+
+`continuationCount` is still computed when `showCounts === false` (e.g., for debug-info overlay), but its value is not visible to the player.
 
 ---
 
@@ -132,16 +137,17 @@ The render layer paints `0`-cells with a red highlight; non-zero counts are draw
 ```
 on page load:
   state = "welcome"
-  loadSettings()   // boardSize from localStorage, default 5
+  loadSettings()   // boardSize and showCounts from localStorage; defaults below
 ```
 
-Default if nothing stored:
+Defaults if nothing stored:
 
 ```
-boardSize = 5
+boardSize  = 5
+showCounts = true
 ```
 
-`boardSize` is validated to one of `5 | 6 | 7 | 8` on load; any invalid value falls back to the default.
+`boardSize` is validated to one of `5 | 6 | 7 | 8` on load; any invalid value falls back to the default. `showCounts` is parsed from the strings `"on"` / `"off"`; any other value falls back to `true`.
 
 Transitions:
 
@@ -228,6 +234,8 @@ schedule "undoFade" effect on `last`
 
 `Undo` is disabled (button greyed out) when `path.length < 2`.
 
+**One click = one move undone.** Each call to `undo()` pops exactly one cell off `path`. The button may be pressed repeatedly; each press undoes one further move. There is no fixed depth limit — the player may undo the entire route back to the starting cell. The disabled state at `path.length < 2` is the only stop condition.
+
 ### 3.4 isWin / isDeadEnd
 
 ```
@@ -307,7 +315,9 @@ confirmGiveUp modal
   └─ "Let me think again..." / outside click → modal = null
 
 settings modal
-  └─ Save & Close → saveSettings(), modal = null, state = "welcome"
+  ├─ change Board size spinner       → pendingBoardSize updated
+  ├─ toggle Continuation hints       → pendingShowCounts updated
+  └─ Save & Close                    → saveSettings(), modal = null, state = "welcome"
 
 finished
   ├─ Settings & Rules → modal = "settings"
@@ -414,9 +424,10 @@ The choice between live solver and precomputed table is made during M7 implement
 3. board:
      a. cells (board-dark / board-light checkerboard)
      b. visited cells overlay (dimmed, with step number)
-     c. candidate cell highlights + continuation counts
-     d. zero-count cells: red highlight
-     e. knight sprite at knightPos
+     c. candidate cells turquoise shimmer — only if `game.showCounts === true`
+     d. continuation count numerals over the shimmer — only if `game.showCounts === true`
+     e. zero-count cells: red shimmer (replaces turquoise) — only if `game.showCounts === true`
+     f. knight sprite at knightPos
 4. right service column (parchment strip):
      a. step counter ("Step: N / total")
      b. Undo button (ghost; disabled style if path.length < 2)
@@ -507,7 +518,10 @@ Input is blocked while a board-mutating animation (`moveFlash`, `undoFade`) is r
 disabled buttons ignore clicks
 modal blocks all background interaction
 input blocked during board-mutating animations
-hover on board cells highlights only availableMoves cells (during playing)
+hover on availableMoves cells:
+  - cursor switches to pointer (always, regardless of showCounts)
+  - visible brightness bump on the cell — only if showCounts === true
+hover on non-candidate cells: cursor stays default, no highlight
 ```
 
 ### 10.2 Touch & Mouse
@@ -545,7 +559,6 @@ solutionPath !== null only when result === "surrender"
 - No alternative knight start cells in V1 (always `(0, 0)`)
 - No timer, no scoring, no leaderboard
 - No move history list with click-to-undo (`Undo to selected`) in V1
-- No `Show continuation hints: Off` toggle in V1
 - No exit / door cell, no "perfect victory" achievement
 - No multiplayer
 - No server or external storage (localStorage only)

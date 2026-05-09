@@ -5,7 +5,7 @@
 - **Vanilla JavaScript** — no frameworks, no dependencies
 - **HTML5 Canvas API** — all visuals drawn programmatically
 - **Web Audio API** — sound synthesis (no audio files)
-- **localStorage** — persisting user settings (board size only in V1)
+- **localStorage** — persisting user settings (board size and continuation-hints toggle in V1)
 - **Deployment** — static files, no server required
 - **Embedding** — via `<iframe>` in WordPress, Notion, or any HTML page
 
@@ -17,10 +17,11 @@ knight-path/
   state.js                 — game state object, logic, state machine (see GAME_LOGIC_SPEC.md)
   render.js                — all drawing, layout constants, colors, animations (see UI_SPEC.md)
   game.js                  — initialization, event handling, game loop, wires state ↔ render
-  knight-path-cover.webp   — background image for the welcome screen
+  knight-path-cover.webp   — atmospheric background image for the welcome screen
+  knight.webp              — knight sprite drawn on the board during play
 ```
 
-The knight piece itself is drawn programmatically as a bronze silhouette (no asset file), to match the bronze-on-parchment aesthetic of the series. A future iteration may swap it for a hand-drawn asset; the rendering function `drawKnight(ctx, x, y, size)` is the single point of change.
+Both raster assets (`knight-path-cover.webp`, `knight.webp`) are preloaded as `<img>` elements and drawn into the canvas via `ctx.drawImage`. There are no other asset files; everything else (board, frame, buttons, UI panels) is drawn programmatically. If the knight sprite ever needs to be swapped for a different art style, the rendering function `drawKnight(ctx, cx, cy, size)` is the single point of change.
 
 ## Responsibilities
 
@@ -31,6 +32,7 @@ The knight piece itself is drawn programmatically as a bronze silhouette (no ass
 | `render.js` | Canvas drawing, layout constants, colors, animations, all draw functions |
 | `game.js` | Entry point, input handling (mouse/touch/keyboard), animation loop, connects state and render |
 | `knight-path-cover.webp` | Atmospheric background for welcome screen (loaded as `<img>`, drawn with cover-fit) |
+| `knight.webp` | Knight sprite drawn on the board during play (loaded as `<img>`, drawn at `~0.80 * cellSize`) |
 
 ## Architectural Rules
 
@@ -96,10 +98,11 @@ User settings are stored in `localStorage` under these keys:
 | Key | Values | Default |
 |-----|--------|---------|
 | `knightPath_boardSize` | `5..8` | `5` |
+| `knightPath_showCounts` | `"on"` / `"off"` | `"on"` |
 
 Game progress (current path, visited cells) is **not persisted**. A page reload returns the game to the welcome screen.
 
-Falls back to an in-memory object if `localStorage` is unavailable (private browsing). Values are validated and clamped on load.
+Falls back to an in-memory object if `localStorage` is unavailable (private browsing). Values are validated and clamped on load: `boardSize` must be one of `5 | 6 | 7 | 8`, `showCounts` is parsed from `"on"` / `"off"` (any other string falls back to `"on"`).
 
 ```js
 const safeStorage = {

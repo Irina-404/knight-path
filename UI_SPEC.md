@@ -75,21 +75,26 @@ The right service column width (`x_col_right - x_col_left ≈ 0.22 W`) is sized 
 
 Square of side `cellSize`. Visual state depends on cell facts (see `GAME_LOGIC_SPEC §1`):
 
-| Visual | Fill | Stroke / overlay |
-|--------|------|-------------------|
+| Visual | Fill | Overlay |
+|--------|------|---------|
 | board-light (parchment) | `BOARD_LIGHT` | thin separator `BOARD_GRID` |
 | board-dark (bronze) | `BOARD_DARK` | thin separator `BOARD_GRID` |
 | visited (knight has been here, then left) | base cell color darkened by `VISITED_DIM` overlay | + step number in `STEP_NUMBER` color |
-| current (knight is here now) | base cell color + soft `CURRENT_GLOW` ring | knight sprite drawn on top |
-| candidate (knight can move here next) | base cell color + `HINT_GLOW` ring | + continuation count numeral in `HINT_NUMBER` color |
-| candidate with count `0` | base cell color + `DEAD_HINT_GLOW` red ring | + `0` numeral in `DEAD_HINT_NUMBER` color |
+| current (knight is here now) | base cell color, no extra overlay | knight sprite drawn on top — the sprite alone marks the knight's position |
+| candidate, hints **on** | base cell color + pulsating `HINT_SHIMMER` (turquoise) overlay | + continuation count numeral in `HINT_NUMBER` color |
+| candidate with count `0`, hints **on** | base cell color + pulsating `DEAD_HINT_SHIMMER` (red) overlay | + `0` numeral in `DEAD_HINT_NUMBER` color |
+| candidate, hints **off** | base cell color, no overlay | no numeral, no shimmer — looks like any other empty cell |
+
+When `game.showCounts === true`, candidate cells get a soft pulsating overlay (a "shimmer") that fills the cell — not a ring. The pulse uses the same rhythm as the gold `Start game` button: a sinusoidal blur/alpha oscillation over ~1.5 s. Turquoise for normal candidates, red for `0`-cells. The continuation count numeral is drawn over the shimmer.
+
+When `game.showCounts === false`, candidate cells receive **no visual treatment at all**. The board is clean: only checkerboard, knight, and visited-cell step numbers are visible. The player must work out reachable cells in their head and discover dead ends only by stepping into them.
 
 The checkerboard pattern follows chess convention: `(x + y) % 2 === 0` is `BOARD_DARK`, else `BOARD_LIGHT`. Bottom-left cell `(0, 0)` is dark.
 
 Step numbers and continuation counts **never appear on the same cell at the same time**. A cell has either:
 - the knight on it (no number),
-- a candidate ring with a continuation count (no step number — the cell is unvisited),
-- a step number (already visited, no candidate ring).
+- a candidate shimmer with a continuation count over it — only if `showCounts === true`; if `showCounts === false`, the cell looks plain (no shimmer, no number),
+- a step number (already visited, no shimmer).
 
 ### 2.2 Board
 
@@ -102,15 +107,14 @@ A `boardSize × boardSize` grid of cells with a bronze frame.
 
 ### 2.3 Knight Sprite
 
-A bronze stylized knight silhouette, drawn programmatically:
+A pre-rendered raster sprite loaded from `knight.webp` (a stylized dark knight silhouette).
 
-- Diameter: `0.80 * cellSize`, centered on the current cell
-- Fill: vertical bronze gradient `BRONZE_LIGHT → BRONZE_MID → BRONZE_DARK`
-- Outline: `BRONZE_OUTLINE`
-- Shape: simplified chess-knight head profile (rounded forms; no Unicode glyphs)
-- The current cell additionally gets a soft golden `CURRENT_GLOW` ring just inside its border so the knight reads cleanly on both light and dark cells
+- Source: `knight.webp` in the project folder, preloaded as an `<img>` element and drawn into the canvas via `ctx.drawImage`
+- Size: target diameter `~0.80 * cellSize`, centered on the current cell, preserving the sprite's own aspect ratio
+- Color of the cell underneath: **no extra glow, ring, or overlay**. The sprite is dark enough to read cleanly on both `BOARD_LIGHT` (parchment) and `BOARD_DARK` (bronze) cells without any cell-level highlight.
+- Idle animation: a subtle breathing scale oscillation (small sinusoidal scale around `1.0`, period ~2 s) while waiting for input, so the knight feels alive without relying on a glowing cell.
 
-A future iteration may replace the programmatic silhouette with a hand-drawn raster asset; the rendering function `drawKnight(ctx, cx, cy, size)` is the single point of change.
+The rendering function `drawKnight(ctx, cx, cy, size)` is the single point of change if the sprite ever needs to be swapped for a different art style.
 
 ### 2.4 Step Number (visited cell)
 
@@ -120,13 +124,23 @@ A future iteration may replace the programmatic silhouette with a hand-drawn ras
 - Cell underlay: base color + `VISITED_DIM` overlay so visited cells read calmer than active candidates
 - Step `1` (the starting cell) is shown the same way as any other visited step
 
-### 2.5 Continuation Count (candidate cell)
+### 2.5 Candidate Shimmer + Continuation Count
 
-- Font: bold sans-serif, size `0.50 * cellSize`
-- Color: `HINT_NUMBER` for counts `≥ 1`, `DEAD_HINT_NUMBER` for `0`
-- Position: centered on the cell
-- The cell additionally gets a `HINT_GLOW` ring (or `DEAD_HINT_GLOW` for zeros)
-- Number is drawn over the candidate-ring overlay so it stays legible
+When `game.showCounts === true`, each candidate cell gets:
+
+- **Shimmer overlay**: filled rectangle inset by `0.06 * cellSize` from cell edges, fill color `HINT_SHIMMER` (or `DEAD_HINT_SHIMMER` for `0`-cells). Alpha and `shadowBlur` oscillate sinusoidally:
+  - Period: `1.5 s` (synced with gold `Start game` button pulse so the welcome and playing screens feel like the same world)
+  - Alpha: `0.25 → 0.55 → 0.25`
+  - `shadowColor`: same as fill, `shadowBlur` oscillates `8 → 22 → 8` px
+- **Numeral** drawn over the shimmer:
+  - Font: bold sans-serif, size `0.50 * cellSize`
+  - Color: `HINT_NUMBER` for counts `≥ 1`, `DEAD_HINT_NUMBER` for `0`
+  - Position: centered on the cell
+  - Drawn after the shimmer so it stays legible
+
+When `game.showCounts === false`, neither the shimmer nor the numeral is drawn. Candidate cells are visually identical to non-candidate cells.
+
+The pulse for all candidate cells is computed from a single global phase so they shimmer in sync — not phase-shifted per cell. This reads as a calm, coordinated highlight, not a busy disco.
 
 ### 2.6 Service Column (playing screen)
 
@@ -201,17 +215,16 @@ Contents (top to bottom):
   - "Move the knight using normal knight moves."
   - "Visit every square exactly once."
   - "Try not to trap yourself."
-- One extra rules hint (smaller, `MODAL_BORDER`, `0.34 * btn_h`):
-  - "Numbers show how many continuations each move has."
 - Divider line (`MODAL_ACCENT`)
 - Settings rows (each row is a label + control on the same line):
   - **Board size** — spinner: white field with `▲ ▼` arrows, value `5..8`, hint "Bigger board → longer puzzle."
+  - **Continuation hints** — toggle `On / Off`, default `On`, hint "Show how many continuations each move has."
 - Each setting occupies one equal-height section between divider lines; label/hint text and controls are vertically centered within that section.
 - All parameter hints are sentence-style with final periods.
 - "Save & Close" button (ghost outline, `MODAL_DARK`)
 - Keep clear empty space around "Save & Close", at least comparable to the modal heading padding.
 
-V1 has only one setting (board size). Future toggles (Sound, Show continuation hints) plug into the same row layout.
+The toggle is the same on/off control style used by `sea-battle` (Islands / Sound). Future toggles (Sound, etc.) plug into the same row layout.
 
 ### 2.10 Confirm Modal (Give up)
 
@@ -243,9 +256,9 @@ Contents:
 | `BOARD_DARK` | `#7A4010` | bronze-dark cells (chess "black"); reuses `BRONZE_DARK` |
 | `BOARD_GRID` | `rgba(61, 24, 0, 0.25)` | thin cell separators |
 | `VISITED_DIM` | `rgba(0, 0, 0, 0.32)` | overlay on visited cells (darken to deemphasise) |
-| `CURRENT_GLOW` | `rgba(255, 220, 120, 0.55)` | inner ring on the cell holding the knight |
-| `HINT_GLOW` | `rgba(255, 220, 120, 0.45)` | ring on candidate next-move cells |
-| `DEAD_HINT_GLOW` | `rgba(220, 60, 60, 0.55)` | ring on candidates with continuation count `0` |
+| `HINT_SHIMMER` | `rgba(94, 234, 212, 0.45)` | turquoise pulsating fill on candidate next-move cells (only when `showCounts === true`) |
+| `DEAD_HINT_SHIMMER` | `rgba(220, 60, 60, 0.55)` | red pulsating fill on candidates with continuation count `0` (only when `showCounts === true`) |
+| `HINT_HOVER` | `rgba(94, 234, 212, 0.18)` | extra brightness bump on the candidate cell currently hovered (only when `showCounts === true`) |
 
 ### Numbers on cells
 
@@ -255,7 +268,7 @@ Contents:
 | `HINT_NUMBER` | `#FFE566` | continuation count on regular candidate cells |
 | `DEAD_HINT_NUMBER` | `#FFFFFF` | `0` numeral on dead-end candidates |
 
-### Bronze (knight sprite, board frame)
+### Bronze (board frame, separators, accents)
 
 | Constant | Value |
 |----------|-------|
@@ -339,9 +352,12 @@ Layout:
 - Board: square, inscribed in `(x_board_left → x_board_right)` × `(y_board_top → y_board_bottom)`
 - Service column on the right (§2.6): step counter, squares left, Undo, Give up?
 
-No "Settings & Rules" button is shown during play — settings are only reachable from welcome and finished, per series convention.
+No "Settings & Rules" button is shown during play — settings are only reachable from welcome and finished, per series convention. As a result, `game.showCounts` is fixed for the duration of a single game; toggling it mid-game is not possible.
 
-Hover highlight (§8): cells in `availableMoves` get a subtle brightness bump on hover; cursor switches to `pointer`. Other cells show `cursor: default`.
+Hover behavior depends on `showCounts`:
+- `showCounts === true`: cells in `availableMoves` get a subtle brightness bump (`HINT_HOVER`) on hover; cursor switches to `pointer`.
+- `showCounts === false`: cursor still switches to `pointer` on candidate cells (so clicks feel responsive), but no visible brightness bump — the board stays clean. The player learns where the knight can move only by clicking.
+- Non-candidate cells in both modes: cursor stays `default`, no highlight.
 
 ### 4.4 Finished
 
@@ -439,7 +455,7 @@ All sounds synthesized via Web Audio API (no files). `AudioContext` created lazi
 - Input blocked during board-mutating animations (`moveFlash`, `undoFade`)
 - Touch and mouse both supported
 - Tap on touchscreen handled via `touchend` (not click event)
-- Hover highlight only meaningful during `playing` and only on candidate cells
+- Hover highlight only drawn during `playing`, only on candidate cells, and only when `showCounts === true`. Cursor still switches to `pointer` on candidates regardless of `showCounts`.
 
 ---
 
@@ -455,9 +471,9 @@ All sounds synthesized via Web Audio API (no files). `AudioContext` created lazi
 
 ## 12. Notes
 
-- All visuals are Canvas-drawn; the only DOM element besides `<canvas>` is the welcome background image (`knight-path-cover.webp`), preloaded as `<img>` and drawn into the canvas
+- All visuals are Canvas-drawn; the only DOM elements besides `<canvas>` are two `<img>` elements preloaded from project files: `knight-path-cover.webp` (welcome screen background) and `knight.webp` (knight sprite). Both are drawn into the canvas via `ctx.drawImage` and never appear in the DOM as visible elements.
 - Colors and sizes as named constants (`COLOR.*`, `layout.*`) for easy tuning
 - Debug grid (`D` key) draws all named layout lines with labels in yellow
 - Debug labels for vertical guide lines are rotated 90° so close X-lines do not overlap
-- Debug info (`I` key) prints `phase`, `boardSize`, `knightPos`, `path.length`, `availableMoves.length`, continuation counts of all candidates, `isWin()` / `isDeadEnd()` flags in the top-right corner
+- Debug info (`I` key) prints `phase`, `boardSize`, `showCounts`, `knightPos`, `path.length`, `availableMoves.length`, continuation counts of all candidates (regardless of `showCounts`), `isWin()` / `isDeadEnd()` flags in the top-right corner
 - All UI strings are kept in a single `strings.en` object so future localization changes do not touch render logic
