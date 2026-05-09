@@ -278,30 +278,39 @@ Process decisions:
 
 ## M8 — Animations + sounds
 
-**Done when:** all gameplay events have the visual + audio feedback described in GAME_LOGIC_SPEC §9 and UI_SPEC §8–9.
+**Done when:** remaining gameplay events have visual + audio feedback: move/undo flashes, victory starfall, and lightweight synth sounds.
 
 **Tasks:**
-- [ ] `render.js`: `effects` array; `pushEffect(effect)`; render-loop pass that draws and prunes effects
-- [ ] `render.js`: `moveFlash`, `undoFade`, `deadEndPulse`, `victory`, `defeat` effects
-- [ ] `render.js`: `solutionTrail` effect (animates the surrender solution; M7 placeholder replaced with real animation)
-- [ ] `render.js`: target hover highlight on candidate cells (already shown in M6 — this milestone only adds the moveFlash on click)
-- [ ] `render.js`: knight idle breathing animation — small sinusoidal scale around `1.0` (period ~2 s) while `state === "playing"` and no input animation is active, so the knight feels alive without a glowing cell
+- [x] `render.js`: `effects` array; `pushEffect(effect)`; render-loop pass that draws and prunes effects
+- [x] `render.js`: `moveFlash` and `undoFade` effects
+- [x] `render.js`: target hover highlight on candidate cells (already shown in M6 — this milestone only adds the moveFlash on click)
+- [x] `render.js`: knight idle breathing animation — implemented earlier; kept as-is in M8
 - [x] `render.js`: finished-screen result illustrations in the right service area — static image selected by `game.result` (`finish-win.webp`, `finish-dead-end.webp`, `finish-surrender.webp`), drawn with contain-fit between the result message and action buttons
-- [ ] `render.js`: subtle `starfall` effect for `result === "win"` only — small gold stars drifting/ twinkling over the right service area illustration; no route/path animation involved
-- [ ] `game.js`: AudioContext created lazily on first user gesture inside the iframe
-- [ ] `game.js`: synth functions for wooden knight click, soft negative tone, reverse tone (undo), victory arpeggio, defeat tones
-- [ ] `game.js`: input blocked while a board-mutating animation (`moveFlash`, `undoFade`) is running
+- [x] `render.js`: subtle `starfall` effect for `result === "win"` only — small gold stars drifting/twinkling over the right service area illustration; no route/path animation involved
+- [x] `game.js`: AudioContext created lazily on first user gesture inside the iframe
+- [x] `game.js`: synth functions for wooden knight click, soft negative tone, reverse tone (undo), victory arpeggio, defeat tones
+- [x] `game.js`: input blocked while a board-mutating animation (`moveFlash`, `undoFade`) is running
+- [x] `game.js` / `render.js`: move-history scrollbar thumb can be dragged directly, in addition to wheel/touch scroll
+
+**Status:** Done — confirmed by user.
+
+**Scope notes:**
+- `deadEndPulse`, `defeat`, and the old board-glow `victory` effect were removed from M8 scope. The game now uses the existing knight exit animation before finished screens.
+- `solutionTrail` was completed in M7 and remains unchanged in M8.
+- Victory feedback is the right-panel `starfall` effect plus a short arpeggio.
+- Move-history scrolling now supports mouse/thumb dragging on the right scrollbar.
 
 **How to verify:**
 - Click a candidate → knight moves with a soft golden flash on the new cell, wooden click sound
 - Click a non-candidate → no move, soft negative tone
 - Press Undo → cool-blue fade on the cell that was abandoned, reverse-tone sound
-- Win a game → board glows golden, ascending arpeggio
-- Trap the knight → red pulses around the trapped cell, descending tones, then "Dead end!" text fades in
-- Surrender → solution trail draws cell-by-cell at ~80 ms each, descending tones at the start
+- Win a game → knight exits, finished screen appears, victory arpeggio plays, and starfall drifts over the win illustration
+- Trap the knight → knight exits, finished screen appears, and a short descending tone plays
+- Surrender → existing M7 solution trail still draws cell-by-cell at ~80 ms each
 - Finished screen → the right service area shows the correct static illustration for win / deadEnd / surrender
 - Win finished screen → a light starfall plays over the illustration; deadEnd and surrender illustrations remain static
 - Toggle to a wider window during animation → effect continues over the correct cell
+- Drag the move-history scrollbar thumb → history scroll position follows the thumb
 - All sounds gracefully degrade if AudioContext fails (no exceptions thrown)
 
 ---
@@ -375,7 +384,7 @@ Process decisions:
 - `drawConfirmModal(title, body, sureLabel)`
 - `drawToast(text)`
 - `drawTargetHover(cell)`
-- Animation effect renderers: moveFlash, undoFade, deadEndPulse, solutionTrail, victory, defeat
+- Animation effect renderers: moveFlash, undoFade, starfall
 - `render()`: top-level dispatcher by `state` and `modal`
 
 </details>
@@ -386,7 +395,7 @@ Process decisions:
 - Canvas setup + resize listener
 - Image preload for `knight-path-cover.webp` and `knight.webp`
 - AudioContext lazy creation on first gesture
-- Synth functions: wooden knight click, soft negative tone, reverse tone, victory arpeggio, defeat tones — all stubbed in M6, real synthesis in M8
+- Synth functions: wooden knight click, soft negative tone, reverse tone, victory arpeggio, defeat tones
 - Hit-test helpers: `hitButton`, `hitBoardCell`, `hitMenuButton`
 - Click handlers: Settings & Rules, Save & Close, Start game, New game, Undo, Give up?, modal buttons
 - Board click → `move(x, y)` if valid, negative tone otherwise

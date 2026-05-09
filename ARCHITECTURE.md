@@ -89,7 +89,7 @@ state.js  render.js
 | `drawDebugGrid(ctx)` | Draw layout reference lines |
 | `drawDebugInfo(ctx)` | Draw debug text overlay |
 | `boardCellRect(x, y)` | Returns screen rect for a board cell |
-| `pushEffect(effect)` | Schedules an animation effect (move-flash, undo-fade, dead-end pulse, solution-trail, victory, defeat) |
+| `pushEffect(effect)` | Schedules a board animation effect (`moveFlash`, `undoFade`) |
 
 ## Settings Persistence
 

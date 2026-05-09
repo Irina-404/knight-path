@@ -37,9 +37,13 @@
     CROWN_GOLD_DARK: "#B77900",
     SOLUTION_TRAIL: "rgba(255, 215, 96, 0.70)",
     SOLUTION_TRAIL_SOFT: "rgba(255, 245, 190, 0.62)",
+    MOVE_FLASH: "rgba(255, 213, 74, 0.78)",
+    UNDO_FADE: "rgba(116, 207, 255, 0.66)",
   };
 
   const DEFAULT_BOARD_SIZE = 5;
+  const BLOCKING_EFFECTS = new Set(["moveFlash", "undoFade"]);
+  const effects = [];
   const welcomeImage = createImage("knight-path-cover.webp");
   const knightImage = createImage("knight.webp");
   const finishImages = {
@@ -143,6 +147,7 @@
   }
 
   function render(context, game) {
+    pruneEffects(performance.now());
     drawBackground(context);
     if (game.state === "welcome") {
       drawWelcome(context);
@@ -210,6 +215,7 @@
     drawPlayerPath(context, game);
     drawCandidateHints(context, game);
     drawBoardGrid(context, game.boardSize || DEFAULT_BOARD_SIZE);
+    drawEffects(context, game);
     if (game.knightPos) {
       drawKnight(context, game.knightPos, game.boardSize || DEFAULT_BOARD_SIZE, game);
     }
@@ -239,6 +245,9 @@
     context.save();
     drawResultBlock(context, game.result, centerX, w);
     drawResultIllustration(context, game.result, resultIllustrationRect());
+    if (game.result === "win") {
+      drawStarfall(context, resultIllustrationRect());
+    }
     drawButton(context, "Settings & Rules", buttons.settings.x + buttons.settings.w / 2, buttons.settings.y + buttons.settings.h / 2, "ghost", false, w);
     drawButton(context, "New game", buttons.newGame.x + buttons.newGame.w / 2, buttons.newGame.y + buttons.newGame.h / 2, "gold", false, w);
     context.restore();
@@ -482,12 +491,10 @@
   }
 
   function drawMoveHistory(context, panel, game) {
-    const pad = Math.round(layout.btnH * 0.28);
-    const rowH = Math.max(22, Math.round(layout.btnH * 0.52));
-    const scrollW = Math.max(24, Math.round(panel.w * 0.12));
-    const listTop = panel.y + layout.btnH * 0.32;
-    const listBottom = panel.y + panel.h - rowH * 0.35;
-    const visibleRows = Math.max(1, Math.floor((listBottom - listTop) / rowH));
+    const metrics = historyMetrics(panel, game);
+    const pad = metrics.pad;
+    const rowH = metrics.rowH;
+    const visibleRows = metrics.visibleRows;
 
     context.save();
     context.fillStyle = COLOR.HISTORY_FILL;
@@ -501,22 +508,46 @@
     context.font = `${Math.round(layout.btnH * 0.44)}px Arial, Helvetica, sans-serif`;
     context.textAlign = "left";
     context.textBaseline = "middle";
-    const path = game.path && game.path.length ? game.path : [{ x: 0, y: 0 }];
-    const maxScroll = Math.max(0, path.length - visibleRows);
-    const scroll = Math.min(maxScroll, Math.max(0, game.historyScroll || 0));
+    const path = metrics.path;
+    const scroll = metrics.scroll;
     for (let row = 0; row < visibleRows; row += 1) {
       const index = scroll + row;
       if (index >= path.length) break;
-      const rowY = listTop + rowH * 0.35 + row * rowH;
+      const rowY = metrics.listTop + rowH * 0.35 + row * rowH;
       if (rowY > panel.y + panel.h - rowH * 0.5) break;
       context.fillText(`${index + 1}) ${cellName(path[index])}`, panel.x + pad * 0.65, rowY);
     }
 
-    drawHistoryScrollbar(context, panel, scrollW, rowH, path.length, visibleRows, scroll);
+    drawHistoryScrollbar(context, metrics);
     context.restore();
   }
 
-  function drawHistoryScrollbar(context, panel, scrollW, rowH, totalRows, visibleRows, scroll) {
+  function historyMetrics(panel, game) {
+    const pad = Math.round(layout.btnH * 0.28);
+    const rowH = Math.max(22, Math.round(layout.btnH * 0.52));
+    const scrollW = Math.max(24, Math.round(panel.w * 0.12));
+    const listTop = panel.y + layout.btnH * 0.32;
+    const listBottom = panel.y + panel.h - rowH * 0.35;
+    const visibleRows = Math.max(1, Math.floor((listBottom - listTop) / rowH));
+    const path = game.path && game.path.length ? game.path : [{ x: 0, y: 0 }];
+    const maxScroll = Math.max(0, path.length - visibleRows);
+    const scroll = Math.min(maxScroll, Math.max(0, game.historyScroll || 0));
+    const scrollbar = historyScrollbarRect(panel, path.length, visibleRows, scroll, rowH, scrollW);
+
+    return {
+      pad,
+      rowH,
+      visibleRows,
+      path,
+      maxScroll,
+      scroll,
+      listTop,
+      listBottom,
+      ...scrollbar,
+    };
+  }
+
+  function historyScrollbarRect(panel, totalRows, visibleRows, scroll, rowH, scrollW) {
     const trackX = panel.x + panel.w - scrollW - 3;
     const trackY = panel.y + 3;
     const trackH = panel.h - 6;
@@ -528,10 +559,21 @@
       ? trackY
       : trackY + (trackH - thumbH) * (scroll / maxScroll);
 
+    return {
+      track: { x: trackX, y: trackY, w: scrollW, h: trackH },
+      thumb: { x: trackX, y: thumbY, w: scrollW, h: thumbH },
+    };
+  }
+
+  function drawHistoryScrollbar(context, metrics) {
     context.fillStyle = "rgba(255, 255, 255, 0.24)";
-    context.fillRect(trackX, trackY, scrollW, trackH);
+    context.fillRect(metrics.track.x, metrics.track.y, metrics.track.w, metrics.track.h);
     context.fillStyle = "rgba(255, 255, 255, 0.50)";
-    context.fillRect(trackX, thumbY, scrollW, thumbH);
+    context.fillRect(metrics.thumb.x, metrics.thumb.y, metrics.thumb.w, metrics.thumb.h);
+  }
+
+  function historyScrollbarHitRegions(game) {
+    return historyMetrics(historyPanelRect(), game);
   }
 
   function cellName(cell) {
@@ -619,6 +661,119 @@
     context.fillStyle = COLOR.HINT_HOVER;
     context.fillRect(rect.x, rect.y, rect.w, rect.h);
     context.restore();
+  }
+
+  function pushEffect(effect) {
+    effects.push({
+      ...effect,
+      startedAt: effect.startedAt || performance.now(),
+      duration: effect.duration || defaultEffectDuration(effect.type),
+    });
+  }
+
+  function hasBlockingEffect() {
+    const now = performance.now();
+    return effects.some((effect) => {
+      return BLOCKING_EFFECTS.has(effect.type) && now - effect.startedAt < effect.duration;
+    });
+  }
+
+  function defaultEffectDuration(type) {
+    if (type === "undoFade") return 220;
+    if (type === "moveFlash") return 220;
+    return 800;
+  }
+
+  function pruneEffects(now) {
+    for (let index = effects.length - 1; index >= 0; index -= 1) {
+      const effect = effects[index];
+      if (now - effect.startedAt >= effect.duration) {
+        effects.splice(index, 1);
+      }
+    }
+  }
+
+  function drawEffects(context, game) {
+    const boardSize = game.boardSize || DEFAULT_BOARD_SIZE;
+    const now = performance.now();
+
+    context.save();
+    for (const effect of effects) {
+      if (effect.type === "moveFlash") {
+        drawCellRingEffect(context, effect, boardSize, now, COLOR.MOVE_FLASH, 0.62);
+      } else if (effect.type === "undoFade") {
+        drawCellRingEffect(context, effect, boardSize, now, COLOR.UNDO_FADE, 0.52);
+      }
+    }
+    context.restore();
+  }
+
+  function drawCellRingEffect(context, effect, boardSize, now, color, startAlpha) {
+    const progress = Math.min(1, Math.max(0, (now - effect.startedAt) / effect.duration));
+    const center = cellCenter(effect, boardSize);
+    const radius = layout.cellSize * (0.18 + progress * 0.42);
+    const alpha = startAlpha * (1 - progress);
+
+    context.save();
+    context.globalAlpha = alpha;
+    context.strokeStyle = color;
+    context.lineWidth = Math.max(3, layout.cellSize * (0.07 - progress * 0.025));
+    context.shadowColor = color;
+    context.shadowBlur = layout.cellSize * 0.14;
+    context.beginPath();
+    context.arc(center.x, center.y, radius, 0, Math.PI * 2);
+    context.stroke();
+    context.restore();
+  }
+
+  function drawStarfall(context, rect) {
+    const now = performance.now();
+    const stars = 20;
+
+    context.save();
+    context.beginPath();
+    context.rect(rect.x, rect.y, rect.w, rect.h);
+    context.clip();
+    for (let index = 0; index < stars; index += 1) {
+      const seed = index * 97.13;
+      const lane = fract(Math.sin(seed) * 10000);
+      const speed = 0.10 + fract(Math.sin(seed + 11) * 10000) * 0.14;
+      const drift = Math.sin(now / 900 + index) * rect.w * 0.035;
+      const x = rect.x + rect.w * lane + drift;
+      const y = rect.y + ((now * speed + index * rect.h * 0.23) % (rect.h + layout.btnH)) - layout.btnH * 0.5;
+      const twinkle = 0.45 + 0.55 * Math.sin(now / 220 + index * 1.7);
+      const radius = Math.max(2, layout.btnH * (0.035 + twinkle * 0.025));
+
+      drawStar(context, x, y, radius, twinkle);
+    }
+    context.restore();
+  }
+
+  function drawStar(context, x, y, radius, alpha) {
+    context.save();
+    context.globalAlpha = 0.35 + alpha * 0.50;
+    context.fillStyle = "#FFE66D";
+    context.shadowColor = "#FFD700";
+    context.shadowBlur = radius * 3;
+    context.beginPath();
+    for (let point = 0; point < 10; point += 1) {
+      const angle = -Math.PI / 2 + point * Math.PI / 5;
+      const r = point % 2 === 0 ? radius : radius * 0.42;
+      const px = x + Math.cos(angle) * r;
+      const py = y + Math.sin(angle) * r;
+      if (point === 0) {
+        context.moveTo(px, py);
+      } else {
+        context.lineTo(px, py);
+      }
+    }
+    context.closePath();
+    context.fill();
+    context.restore();
+  }
+
+  function fract(value) {
+    return value - Math.floor(value);
   }
 
   function drawSolutionOverlay(context, game) {
@@ -1306,10 +1461,13 @@
     drawDebugGrid,
     drawSettingsPanel,
     drawConfirmModal,
+    pushEffect,
+    hasBlockingEffect,
     welcomeButtonRects,
     playingButtonRects,
     finishedButtonRects,
     historyPanelRect,
+    historyScrollbarHitRegions,
     boardCellRect,
     boardCellAt,
   };

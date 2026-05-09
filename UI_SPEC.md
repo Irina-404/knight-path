@@ -423,10 +423,7 @@ See `GAME_LOGIC_SPEC §9` for parameters. Recap of visual specs:
 |--------|--------|
 | `moveFlash` | Soft golden ring expanding on the cell the knight just landed on, alpha `0.6 → 0` over 180–240 ms |
 | `undoFade` | Soft cool-blue ring on the cell that was unvisited (not the cell the knight returned to), alpha `0.5 → 0` over 180–240 ms |
-| `deadEndPulse` | Three slow red pulses around the trapped knight cell, total ~600–800 ms, then result text fades in |
-| `solutionTrail` | The full solution path lights up cell-by-cell at ~80 ms per cell. Each newly lit cell shows a soft `SOLUTION_GLOW` underlay and the line segment from the previous cell is drawn in `SOLUTION_TRAIL`. After the last cell, the entire trail stays as a faint bronze polyline; small numerals (smaller than step numbers, in `MODAL_BODY`) sit in the bottom-right corner of each cell so they coexist with the player's step numbers from the abandoned attempt |
-| `victory` | Golden glow around the board (radial, `BRONZE_LIGHT` outer, fade), result text fades in |
-| `defeat` | Slight darkening (`rgba(0,0,0,0.18)`), result text fades in |
+| `starfall` | On the win finished screen only, small gold stars drift and twinkle over the right service-area illustration |
 
 `solutionTrail` is non-blocking; the player can press `New game` or `Settings & Rules` while the trail is still drawing — the animation aborts cleanly.
 

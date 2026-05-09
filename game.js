@@ -26,6 +26,8 @@
   let debugMode = false;
   let animationFrameId = null;
   let modalRegions = null;
+  let audioContext = null;
+  let historyDrag = null;
 
   function showCanvasFallback() {
     const fallback = document.getElementById("canvasFallback");
@@ -78,17 +80,23 @@
 
     const { game, undo } = window.KnightPathState;
     const isUndoKey = event.key.toLowerCase() === "u" || (event.ctrlKey && event.key.toLowerCase() === "z");
-    if (isUndoKey && game.state === "playing" && game.modal === null) {
-      if (undo()) {
+    if (isUndoKey && game.state === "playing" && game.modal === null && !isInputBlocked()) {
+      if (performUndo(undo)) {
         event.preventDefault();
-        render();
       }
     }
   }
 
   function handlePointerUp(event) {
+    resumeAudio();
     const point = canvasPoint(event);
     const { game, initGame, startGame, openSettings, saveSettings, move, undo, surrender } = window.KnightPathState;
+
+    if (historyDrag) {
+      updateHistoryDrag(point);
+      stopHistoryDrag(event);
+      return;
+    }
 
     if (game.modal === "settings") {
       handleSettingsClick(point, saveSettings);
@@ -115,6 +123,27 @@
     }
   }
 
+  function handlePointerDown(event) {
+    const { game } = window.KnightPathState;
+    if (game.state !== "playing" || game.modal !== null || game.finishExit || isInputBlocked()) {
+      return;
+    }
+
+    const point = canvasPoint(event);
+    const regions = window.KnightPathRender.historyScrollbarHitRegions(game);
+    if (!regions || regions.maxScroll <= 0 || !hitRect(point, regions.thumb)) {
+      return;
+    }
+
+    historyDrag = {
+      pointerId: event.pointerId,
+      offsetY: point.y - regions.thumb.y,
+    };
+    canvas.setPointerCapture(event.pointerId);
+    canvas.style.cursor = "grabbing";
+    event.preventDefault();
+  }
+
   function handleWelcomeClick(point, initGame, startGame, openSettings) {
     const buttons = window.KnightPathRender.welcomeButtonRects();
 
@@ -134,15 +163,13 @@
 
   function handlePlayingClick(point, move, undo) {
     const { game } = window.KnightPathState;
-    if (game.finishExit) {
+    if (game.finishExit || isInputBlocked()) {
       return;
     }
 
     const buttons = window.KnightPathRender.playingButtonRects();
     if (hitRect(point, buttons.undo)) {
-      if (undo()) {
-        render();
-      }
+      performUndo(undo);
       return;
     }
 
@@ -158,6 +185,8 @@
     }
 
     if (move(cell.x, cell.y)) {
+      window.KnightPathRender.pushEffect({ type: "moveFlash", x: cell.x, y: cell.y });
+      playMoveTone();
       canvas.style.cursor = "default";
       render();
     } else {
@@ -240,6 +269,13 @@
     const point = canvasPoint(event);
     const { game, isAvailableMove } = window.KnightPathState;
 
+    if (historyDrag) {
+      updateHistoryDrag(point);
+      canvas.style.cursor = "grabbing";
+      event.preventDefault();
+      return;
+    }
+
     if (game.modal !== null || game.state !== "playing") {
       game.hoverCell = null;
       if (game.modal === "confirmGiveUp" && modalRegions) {
@@ -253,19 +289,21 @@
       return;
     }
 
-    if (game.finishExit) {
+    if (game.finishExit || isInputBlocked()) {
       game.hoverCell = null;
       canvas.style.cursor = "default";
       return;
     }
 
     const buttons = window.KnightPathRender.playingButtonRects();
+    const historyScroll = window.KnightPathRender.historyScrollbarHitRegions(game);
     if (
       (game.path && game.path.length >= 2 && hitRect(point, buttons.undo)) ||
-      hitRect(point, buttons.giveUp)
+      hitRect(point, buttons.giveUp) ||
+      (historyScroll.maxScroll > 0 && hitRect(point, historyScroll.thumb))
     ) {
       game.hoverCell = null;
-      canvas.style.cursor = "pointer";
+      canvas.style.cursor = hitRect(point, historyScroll.thumb) ? "grab" : "pointer";
       return;
     }
 
@@ -280,8 +318,144 @@
     canvas.style.cursor = "default";
   }
 
+  function handlePointerCancel(event) {
+    if (historyDrag) {
+      stopHistoryDrag(event);
+    }
+  }
+
+  function updateHistoryDrag(point) {
+    const { game } = window.KnightPathState;
+    const regions = window.KnightPathRender.historyScrollbarHitRegions(game);
+    if (!regions || regions.maxScroll <= 0) {
+      return;
+    }
+
+    const travel = regions.track.h - regions.thumb.h;
+    if (travel <= 0) {
+      game.historyScroll = 0;
+      render();
+      return;
+    }
+
+    const thumbY = Math.min(
+      regions.track.y + travel,
+      Math.max(regions.track.y, point.y - historyDrag.offsetY),
+    );
+    const ratio = (thumbY - regions.track.y) / travel;
+    game.historyScroll = Math.round(ratio * regions.maxScroll);
+    render();
+  }
+
+  function stopHistoryDrag(event) {
+    if (historyDrag && event.pointerId === historyDrag.pointerId && canvas.hasPointerCapture(event.pointerId)) {
+      canvas.releasePointerCapture(event.pointerId);
+    }
+    historyDrag = null;
+    canvas.style.cursor = "default";
+  }
+
+  function performUndo(undo) {
+    const { game } = window.KnightPathState;
+    if (!game.path || game.path.length < 2) {
+      return false;
+    }
+
+    const abandoned = game.path[game.path.length - 1];
+    if (!undo()) {
+      return false;
+    }
+
+    window.KnightPathRender.pushEffect({ type: "undoFade", x: abandoned.x, y: abandoned.y });
+    playUndoTone();
+    render();
+    return true;
+  }
+
+  function isInputBlocked() {
+    return window.KnightPathRender.hasBlockingEffect();
+  }
+
+  function playMoveTone() {
+    playToneSequence([
+      { frequency: 190, start: 0, duration: 0.045, type: "square", gain: 0.035 },
+      { frequency: 95, start: 0.018, duration: 0.060, type: "triangle", gain: 0.030 },
+    ]);
+  }
+
   function playNegativeTone() {
-    // Real audio synthesis lands in M8; M6 only needs the rejected-click hook.
+    playToneSequence([
+      { frequency: 130, start: 0, duration: 0.110, type: "sine", gain: 0.030 },
+    ]);
+  }
+
+  function playUndoTone() {
+    playToneSequence([
+      { frequency: 330, start: 0, duration: 0.060, type: "triangle", gain: 0.026 },
+      { frequency: 220, start: 0.055, duration: 0.085, type: "triangle", gain: 0.024 },
+    ]);
+  }
+
+  function playVictoryTone() {
+    playToneSequence([
+      { frequency: 392, start: 0, duration: 0.100, type: "triangle", gain: 0.032 },
+      { frequency: 494, start: 0.090, duration: 0.110, type: "triangle", gain: 0.032 },
+      { frequency: 659, start: 0.190, duration: 0.150, type: "triangle", gain: 0.030 },
+      { frequency: 784, start: 0.320, duration: 0.210, type: "sine", gain: 0.024 },
+    ]);
+  }
+
+  function playDefeatTone() {
+    playToneSequence([
+      { frequency: 220, start: 0, duration: 0.120, type: "triangle", gain: 0.030 },
+      { frequency: 165, start: 0.110, duration: 0.150, type: "triangle", gain: 0.028 },
+    ]);
+  }
+
+  function playToneSequence(notes) {
+    const audio = resumeAudio();
+    if (!audio) {
+      return;
+    }
+
+    const now = audio.currentTime;
+    for (const note of notes) {
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+      const start = now + note.start;
+      const end = start + note.duration;
+
+      oscillator.type = note.type;
+      oscillator.frequency.setValueAtTime(note.frequency, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(note.gain, start + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
+      oscillator.connect(gain);
+      gain.connect(audio.destination);
+      oscillator.start(start);
+      oscillator.stop(end + 0.02);
+    }
+  }
+
+  function resumeAudio() {
+    try {
+      if (!audioContext) {
+        const AudioCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtor) {
+          return null;
+        }
+        audioContext = new AudioCtor();
+      }
+
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+
+      return audioContext;
+    } catch {
+      return null;
+    }
   }
 
   function completeFinishExitIfReady() {
@@ -291,7 +465,13 @@
     }
 
     if (performance.now() - game.finishExit.startedAt >= game.finishExit.duration) {
+      const result = game.finishExit.result;
       completeFinishExit();
+      if (result === "win") {
+        playVictoryTone();
+      } else if (result === "deadEnd") {
+        playDefeatTone();
+      }
     }
   }
 
@@ -354,7 +534,9 @@
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("knightPathRenderAssetLoaded", render);
     canvas.addEventListener("pointerup", handlePointerUp);
+    canvas.addEventListener("pointerdown", handlePointerDown);
     canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointercancel", handlePointerCancel);
     canvas.addEventListener("wheel", handleWheel, { passive: false });
   }
 

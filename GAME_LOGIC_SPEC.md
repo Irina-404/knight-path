@@ -432,7 +432,7 @@ The choice between live solver and precomputed table is made during M7 implement
      a. step counter ("Step: N / total")
      b. Undo button (ghost; disabled style if path.length < 2)
      c. Give up? button (muted)
-5. active animation effects above their cells (moveFlash, undoFade, deadEndPulse)
+5. active animation effects above their cells (moveFlash, undoFade)
 6. modal overlay + panel (if open)
 7. debug grid (if D key active)
 8. debug info (if I key active)
@@ -487,8 +487,8 @@ All animations are short, event-driven, and stored in a single `effects` array:
 
 ```
 effect {
-  type:        "moveFlash" | "undoFade" | "deadEndPulse" | "solutionTrail" | "victory" | "defeat"
-  x, y:        integer cell coordinates (or list of cells for solutionTrail)
+  type:        "moveFlash" | "undoFade"
+  x, y:        integer cell coordinates
   startTime:   ms
   duration:    ms
   // type-specific fields
@@ -496,17 +496,15 @@ effect {
 ```
 
 The render loop advances `t = (now - startTime) / duration`, draws the effect, and removes it once `t >= 1`.
+The win finished screen also has a procedural `starfall` animation over the right service-area illustration; it is visual-only and does not block input.
 
 | Effect | Duration | Description |
 |--------|----------|-------------|
 | `moveFlash` | 180–240 ms | Soft golden ring expanding on the cell the knight just landed on; alpha `0.6 → 0` |
 | `undoFade` | 180–240 ms | Soft cool-blue ring on the cell that was unvisited; alpha `0.5 → 0` |
-| `deadEndPulse` | 600–800 ms | Three slow red pulses around the trapped knight cell |
-| `solutionTrail` | `~80 ms × cells` | A glowing trail draws the solution in order; each cell lights up briefly, leaves a faint bronze line to the next |
-| `victory` | ~800 ms | Golden glow around the board + result text fade-in |
-| `defeat` | ~800 ms | Slight darkening + result text fade-in |
+| `starfall` | continuous on win screen | Small gold stars drift and twinkle over the win illustration in the right service area |
 
-Input is blocked while a board-mutating animation (`moveFlash`, `undoFade`) is running. Cosmetic / end-game effects (`deadEndPulse`, `solutionTrail`, `victory`, `defeat`) do not block input on the finished screen because no further input is expected.
+Input is blocked while a board-mutating animation (`moveFlash`, `undoFade`) is running. End-game screens use the existing knight exit animation before the finished screen; no separate dead-end pulse, defeat overlay, or board-glow victory effect is used.
 
 ---
 
