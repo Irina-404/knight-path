@@ -25,6 +25,7 @@
   let context = null;
   let debugMode = false;
   let animationFrameId = null;
+  let modalRegions = null;
 
   function showCanvasFallback() {
     const fallback = document.getElementById("canvasFallback");
@@ -39,7 +40,7 @@
   function render() {
     const { game } = window.KnightPathState;
     window.KnightPathRender.recomputeLayout(canvas, game.boardSize || DEFAULT_BOARD_SIZE);
-    window.KnightPathRender.render(context, game);
+    modalRegions = window.KnightPathRender.render(context, game);
     if (debugMode) {
       window.KnightPathRender.drawDebugGrid(context);
     }
@@ -77,15 +78,60 @@
 
   function handlePointerUp(event) {
     const point = canvasPoint(event);
-    const { game, initGame, startGame } = window.KnightPathState;
+    const { game, initGame, startGame, openSettings, saveSettings } = window.KnightPathState;
+
+    if (game.modal === "settings") {
+      handleSettingsClick(point, saveSettings);
+      return;
+    }
+
     if (game.state !== "welcome") return;
 
     const buttons = window.KnightPathRender.welcomeButtonRects();
+    if (hitRect(point, buttons.settings)) {
+      openSettings();
+      render();
+      return;
+    }
+
     if (hitRect(point, buttons.start)) {
       initGame();
       startGame();
       render();
       ensureAnimationLoop();
+    }
+  }
+
+  function handleSettingsClick(point, saveSettings) {
+    const { game } = window.KnightPathState;
+
+    if (!modalRegions) {
+      return;
+    }
+
+    if (hitRect(point, modalRegions.spinnerUp)) {
+      game.pendingBoardSize = Math.min(8, game.pendingBoardSize + 1);
+      render();
+      return;
+    }
+
+    if (hitRect(point, modalRegions.spinnerDown)) {
+      game.pendingBoardSize = Math.max(5, game.pendingBoardSize - 1);
+      render();
+      return;
+    }
+
+    for (const toggle of modalRegions.toggles) {
+      if (hitRect(point, toggle)) {
+        game[toggle.field] = toggle.value;
+        render();
+        return;
+      }
+    }
+
+    if (hitRect(point, modalRegions.saveBtn)) {
+      saveSettings(safeStorage);
+      render();
     }
   }
 

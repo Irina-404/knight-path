@@ -3,10 +3,12 @@
 
   const STORAGE_KEYS = {
     boardSize: "knightPath_boardSize",
+    showCounts: "knightPath_showCounts",
   };
 
   const DEFAULT_SETTINGS = {
     boardSize: 5,
+    showCounts: true,
   };
 
   const KNIGHT_DELTAS = [
@@ -25,7 +27,9 @@
     modal: null,
 
     boardSize: DEFAULT_SETTINGS.boardSize,
+    showCounts: DEFAULT_SETTINGS.showCounts,
     pendingBoardSize: DEFAULT_SETTINGS.boardSize,
+    pendingShowCounts: DEFAULT_SETTINGS.showCounts,
 
     knightPos: null,
     startPos: null,
@@ -36,7 +40,6 @@
     result: null,
     solutionPath: null,
 
-    showCounts: true,
     selectedHistoryStep: null,
   };
 
@@ -50,14 +53,32 @@
     return DEFAULT_SETTINGS.boardSize;
   }
 
+  function normalizeShowCounts(value) {
+    if (value === "on") return true;
+    if (value === "off") return false;
+    return DEFAULT_SETTINGS.showCounts;
+  }
+
   function loadSettings(storage) {
     game.boardSize = normalizeBoardSize(storage.get(STORAGE_KEYS.boardSize));
+    game.showCounts = normalizeShowCounts(storage.get(STORAGE_KEYS.showCounts));
     game.pendingBoardSize = game.boardSize;
+    game.pendingShowCounts = game.showCounts;
+  }
+
+  function openSettings() {
+    game.pendingBoardSize = game.boardSize;
+    game.pendingShowCounts = game.showCounts;
+    game.modal = "settings";
   }
 
   function saveSettings(storage) {
     game.boardSize = normalizeBoardSize(game.pendingBoardSize);
+    game.showCounts = Boolean(game.pendingShowCounts);
     storage.set(STORAGE_KEYS.boardSize, String(game.boardSize));
+    storage.set(STORAGE_KEYS.showCounts, game.showCounts ? "on" : "off");
+    game.modal = null;
+    game.state = "welcome";
   }
 
   function initGame() {
@@ -96,6 +117,7 @@
     game,
     key,
     loadSettings,
+    openSettings,
     saveSettings,
     initGame,
     startGame,

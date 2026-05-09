@@ -16,6 +16,12 @@
     HISTORY_FILL: "rgba(255, 255, 255, 0.08)",
     HISTORY_STROKE: "rgba(255, 255, 255, 0.34)",
     COORD_TEXT: "rgba(255, 255, 255, 0.84)",
+    MODAL_BG: "#F5ECD7",
+    MODAL_BORDER: "#8B6914",
+    MODAL_DARK: "#3D1800",
+    MODAL_BODY: "#5D3A1A",
+    MODAL_ACCENT: "#C8A96E",
+    MODAL_SELECTED_TEXT: "#FFFFFF",
   };
 
   const DEFAULT_BOARD_SIZE = 5;
@@ -120,9 +126,15 @@
     drawBackground(context);
     if (game.state === "welcome") {
       drawWelcome(context);
-      return;
+    } else {
+      drawPlaying(context, game);
     }
-    drawPlaying(context, game);
+
+    if (game.modal === "settings") {
+      return drawSettingsPanel(context, game);
+    }
+
+    return null;
   }
 
   function drawWelcome(context) {
@@ -378,6 +390,253 @@
     context.restore();
   }
 
+  function drawSettingsPanel(context, pending) {
+    const panelX = layout.lines.x_left;
+    const panelY = layout.lines.y_header;
+    const panelW = layout.lines.x_right - layout.lines.x_left;
+    const panelBottom = layout.lines.y_service_mid;
+    const panelH = panelBottom - panelY;
+    const panelR = panelW * 0.03;
+    const margin = panelW * 0.055;
+    const pad = panelH * 0.04;
+    const textX = panelX + margin;
+    const textMaxW = panelW - margin * 2;
+    const regions = {
+      panel: { x: panelX, y: panelY, w: panelW, h: panelH },
+      toggles: [],
+    };
+
+    context.save();
+    context.fillStyle = "rgba(0, 0, 0, 0.55)";
+    context.fillRect(0, 0, layout.width, layout.height);
+
+    drawRoundRect(context, panelX, panelY, panelW, panelH, panelR);
+    context.fillStyle = COLOR.MODAL_BG;
+    context.fill();
+    context.strokeStyle = COLOR.MODAL_BORDER;
+    context.lineWidth = 3;
+    context.stroke();
+
+    const headSize = Math.round(layout.btnH * 0.52);
+    const ruleSize = Math.round(layout.btnH * 0.36);
+    const hintSize = Math.round(layout.btnH * 0.28);
+    const labelSize = Math.round(layout.btnH * 0.31);
+    const rowH = layout.btnH * 0.78;
+    const hintLineH = hintSize * 1.25;
+    let y = panelY + pad + headSize / 2;
+
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillStyle = COLOR.MODAL_DARK;
+    context.font = `bold ${headSize}px Arial, Helvetica, sans-serif`;
+    context.fillText("Rules", layout.lines.x_center, y);
+
+    y += headSize * 0.85;
+    context.textAlign = "left";
+    context.textBaseline = "top";
+    context.fillStyle = COLOR.MODAL_BODY;
+    context.font = `${ruleSize}px Arial, Helvetica, sans-serif`;
+    y = drawBulletList(context, [
+      "Move the knight using normal knight moves.",
+      "Visit every square exactly once.",
+      "Try not to trap yourself.",
+    ], textX, y, textMaxW, ruleSize * 1.32);
+
+    const controlLeft = panelX + panelW * 0.44;
+    const controlRight = panelX + panelW * 0.90;
+    const labelX = textX;
+    const dividerX = panelX + panelW * 0.05;
+    const dividerW = panelW * 0.90;
+    const saveW = layout.btnW;
+    const saveH = layout.btnH;
+    const saveX = layout.lines.x_center - saveW / 2;
+    const saveY = panelBottom - pad - saveH;
+    const naturalSettingsTop = y + pad * 0.70;
+    const maxSectionH = Math.max(rowH * 1.35, layout.btnH * 1.28);
+    const settingsAreaH = maxSectionH * 2;
+    const settingsTop = naturalSettingsTop;
+    const settingsBottom = settingsTop + settingsAreaH;
+    const sectionH = settingsAreaH / 2;
+
+    for (let index = 0; index <= 2; index += 1) {
+      drawSettingDivider(context, dividerX, dividerW, settingsTop + sectionH * index);
+    }
+
+    y = settingsTop + sectionH * 0.5;
+    drawSettingTextBlock(context, "Board size", "Bigger board -> longer puzzle.", labelX, y, labelSize, hintSize, hintLineH);
+    const spinnerRegions = drawBoardSizeRow(context, controlLeft, y - rowH / 2, rowH, pending.pendingBoardSize);
+    regions.spinnerUp = spinnerRegions.spinnerUp;
+    regions.spinnerDown = spinnerRegions.spinnerDown;
+
+    y = settingsTop + sectionH * 1.5;
+    drawSettingTextBlock(context, "Continuation hints", "Show how many continuations each move has.", labelX, y, labelSize, hintSize, hintLineH);
+    drawToggleRow(context, regions, "pendingShowCounts", [
+      [false, "Off"],
+      [true, "On"],
+    ], pending.pendingShowCounts, controlLeft, controlRight, y - rowH / 2, rowH);
+
+    drawModalButton(context, "Save & Close", saveX, saveY, saveW, saveH);
+    regions.saveBtn = { x: saveX, y: saveY, w: saveW, h: saveH };
+
+    context.restore();
+    return regions;
+  }
+
+  function drawBulletList(context, items, x, y, maxWidth, lineHeight) {
+    const bullet = "\u2022 ";
+    const bulletW = context.measureText(bullet).width;
+
+    for (const item of items) {
+      const lines = wrapText(context, item, maxWidth - bulletW);
+      for (let index = 0; index < lines.length; index += 1) {
+        if (index === 0) {
+          context.fillText(bullet, x, y);
+        }
+        context.fillText(lines[index], x + bulletW, y);
+        y += lineHeight;
+      }
+      y += lineHeight * 0.12;
+    }
+
+    return y;
+  }
+
+  function drawBoardSizeRow(context, controlLeft, y, rowH, value) {
+    const spinH = rowH;
+    const arrowW = spinH * 0.52;
+    const fieldW = spinH * 1.75;
+    const centerY = y + rowH / 2;
+
+    drawRoundRect(context, controlLeft, y, fieldW, spinH, spinH * 0.12);
+    context.fillStyle = "#FFFFFF";
+    context.fill();
+    context.strokeStyle = COLOR.MODAL_BORDER;
+    context.lineWidth = 2;
+    context.stroke();
+    context.fillStyle = COLOR.MODAL_DARK;
+    context.font = `bold ${Math.round(spinH * 0.50)}px Arial, Helvetica, sans-serif`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(String(value), controlLeft + fieldW / 2, centerY);
+
+    const up = { x: controlLeft + fieldW, y, w: arrowW, h: spinH / 2 };
+    const down = { x: controlLeft + fieldW, y: y + spinH / 2, w: arrowW, h: spinH / 2 };
+    drawSpinnerArrow(context, up, "\u25B2");
+    drawSpinnerArrow(context, down, "\u25BC");
+
+    return {
+      spinnerUp: up,
+      spinnerDown: down,
+    };
+  }
+
+  function drawSpinnerArrow(context, rect, arrow) {
+    drawRoundRect(context, rect.x, rect.y, rect.w, rect.h, 4);
+    context.fillStyle = COLOR.MODAL_ACCENT;
+    context.fill();
+    context.strokeStyle = COLOR.MODAL_BORDER;
+    context.lineWidth = 1.5;
+    context.stroke();
+    context.fillStyle = COLOR.MODAL_DARK;
+    context.font = `bold ${Math.round(rect.h * 0.62)}px Arial, Helvetica, sans-serif`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(arrow, rect.x + rect.w / 2, rect.y + rect.h / 2);
+  }
+
+  function drawToggleRow(context, regions, field, options, currentValue, controlLeft, controlRight, y, rowH) {
+    const gap = Math.max(6, layout.btnH * 0.12);
+    const buttonW = (controlRight - controlLeft - gap * (options.length - 1)) / options.length;
+    for (let index = 0; index < options.length; index += 1) {
+      const [value, text] = options[index];
+      const x = controlLeft + index * (buttonW + gap);
+      const selected = value === currentValue;
+      drawToggleButton(context, text, x, y, buttonW, rowH, selected);
+      regions.toggles.push({ x, y, w: buttonW, h: rowH, field, value });
+    }
+  }
+
+  function drawSettingTextBlock(context, label, hint, x, centerY, labelSize, hintSize, hintLineH) {
+    const gap = hintSize * 0.15;
+    const blockH = labelSize + gap + hintLineH;
+    const top = centerY - blockH / 2;
+    drawSettingLabel(context, label, x, top + labelSize / 2, labelSize);
+    drawSettingHint(context, hint, x, top + labelSize + gap, hintSize, hintLineH);
+  }
+
+  function drawSettingLabel(context, label, x, y, size) {
+    context.fillStyle = COLOR.MODAL_BODY;
+    context.font = `${size}px Arial, Helvetica, sans-serif`;
+    context.textAlign = "left";
+    context.textBaseline = "middle";
+    context.fillText(label, x, y);
+  }
+
+  function drawSettingHint(context, hint, x, y, size, lineHeight) {
+    context.fillStyle = COLOR.MODAL_BORDER;
+    context.font = `${size}px Arial, Helvetica, sans-serif`;
+    context.textAlign = "left";
+    context.textBaseline = "top";
+    context.fillText(hint, x, y + lineHeight * 0.08);
+  }
+
+  function drawSettingDivider(context, x, width, y) {
+    context.strokeStyle = COLOR.MODAL_ACCENT;
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(x, y);
+    context.lineTo(x + width, y);
+    context.stroke();
+  }
+
+  function drawToggleButton(context, label, x, y, width, height, selected) {
+    drawRoundRect(context, x, y, width, height, layout.btnRadius * 0.7);
+    context.fillStyle = selected ? COLOR.MODAL_DARK : "rgba(255, 255, 255, 0)";
+    context.fill();
+    context.strokeStyle = COLOR.MODAL_DARK;
+    context.lineWidth = 1.5;
+    context.stroke();
+    context.fillStyle = selected ? COLOR.MODAL_SELECTED_TEXT : COLOR.MODAL_DARK;
+    context.font = `${Math.round(height * 0.38)}px Arial, Helvetica, sans-serif`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(label, x + width / 2, y + height / 2);
+  }
+
+  function drawModalButton(context, label, x, y, width, height) {
+    drawRoundRect(context, x, y, width, height, layout.btnRadius);
+    context.strokeStyle = COLOR.MODAL_DARK;
+    context.lineWidth = 1.5;
+    context.stroke();
+    context.fillStyle = COLOR.MODAL_DARK;
+    context.font = `${Math.round(height * 0.40)}px Arial, Helvetica, sans-serif`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(label, x + width / 2, y + height / 2);
+  }
+
+  function wrapText(context, text, maxWidth) {
+    const words = text.split(" ");
+    const lines = [];
+    let line = "";
+
+    for (const word of words) {
+      const testLine = line ? `${line} ${word}` : word;
+      if (context.measureText(testLine).width <= maxWidth || !line) {
+        line = testLine;
+      } else {
+        lines.push(line);
+        line = word;
+      }
+    }
+
+    if (line) {
+      lines.push(line);
+    }
+
+    return lines;
+  }
+
   function drawRoundRect(context, x, y, width, height, radius) {
     const safeRadius = Math.min(radius, width / 2, height / 2);
     context.beginPath();
@@ -494,6 +753,7 @@
     drawBackground,
     render,
     drawDebugGrid,
+    drawSettingsPanel,
     welcomeButtonRects,
   };
 })();

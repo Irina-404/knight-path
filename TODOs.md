@@ -143,18 +143,24 @@ Process decisions:
 
 ## M5b — Settings modal
 
+**Status:** Done — implemented and reviewed.
+
 **Done when:** opening Settings shows the panel with the board-size spinner and the continuation-hints toggle; both values save to localStorage.
 
 **Tasks:**
-- [ ] `render.js`: `drawSettingsPanel(pending)` — full-width parchment panel with rules, board-size spinner, continuation-hints toggle, Save & Close button
-- [ ] `render.js`: spinner control (▲▼) for board size, range 5..8
-- [ ] `render.js`: on/off toggle control for `Continuation hints` (same style as `sea-battle` toggles); hint text under the toggle: "Show how many continuations each move has."
-- [ ] `state.js`: `loadSettings()` parses `knightPath_showCounts` from `"on"` / `"off"`, defaults to `true`, validates
-- [ ] `state.js`: `saveSettings()` writes `knightPath_showCounts` as `"on"` / `"off"`
-- [ ] `game.js`: click Settings & Rules → `modal = "settings"`, copy `boardSize`, `showCounts` into `pendingBoardSize`, `pendingShowCounts`
-- [ ] `game.js`: clicks inside the panel update `pendingBoardSize` and `pendingShowCounts`
-- [ ] `game.js`: click Save & Close → write `pendingBoardSize` and `pendingShowCounts` into `game.boardSize`, `game.showCounts`, persist via `safeStorage`, close modal, `state = "welcome"`
-- [ ] `game.js`: click outside the panel → ignored (per spec)
+- [x] `render.js`: `drawSettingsPanel(pending)` — full-width parchment panel with rules, board-size spinner, continuation-hints toggle, Save & Close button
+- [x] `render.js`: spinner control (▲▼) for board size, range 5..8
+- [x] `render.js`: on/off toggle control for `Continuation hints` (same style as `sea-battle` toggles); hint text under the toggle: "Show how many continuations each move has."
+- [x] `state.js`: `loadSettings()` parses `knightPath_showCounts` from `"on"` / `"off"`, defaults to `true`, validates
+- [x] `state.js`: `saveSettings()` writes `knightPath_showCounts` as `"on"` / `"off"`
+- [x] `game.js`: click Settings & Rules → `modal = "settings"`, copy `boardSize`, `showCounts` into `pendingBoardSize`, `pendingShowCounts`
+- [x] `game.js`: clicks inside the panel update `pendingBoardSize` and `pendingShowCounts`
+- [x] `game.js`: click Save & Close → write `pendingBoardSize` and `pendingShowCounts` into `game.boardSize`, `game.showCounts`, persist via `safeStorage`, close modal, `state = "welcome"`
+- [x] `game.js`: click outside the panel → ignored (per spec)
+
+**M5b implementation notes:**
+- Settings panel style and interaction model follow `sea-battle`: parchment panel over a dim overlay, section dividers, spinner arrows, segmented toggle, and centered `Save & Close`.
+- `Continuation hints` is wired into state and persistence now; the visible gameplay effect of hiding candidate shimmer/counts lands in M6 when hints are rendered.
 
 **How to verify:**
 - Welcome → Settings opens panel with both controls visible
