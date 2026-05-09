@@ -186,7 +186,7 @@ Process decisions:
 - [x] `game.js`: temporary button "→ Finish (win/deadEnd/surrender)" for testing transitions (remove in M7)
 
 **M5c implementation notes:**
-- Temporary `→ Finish` button is shown in the playing service column and cycles through `win`, `deadEnd`, and `surrender` results on successive uses.
+- Temporary `→ Finish` button was used for M5c result-screen testing; it was removed in M6 once real move / win / dead-end flow became playable.
 - Surrender result shows only the stub text in M5c; solution-path generation and overlay are deferred to M7.
 
 **How to verify:**
@@ -198,23 +198,29 @@ Process decisions:
 
 ## M6 — Knight moves + Warnsdorff hints + win / dead-end
 
+**Status:** Done — confirmed by user.
+
 **Done when:** a full game is playable end-to-end. Click candidate cells to move the knight; continuation counts shown; win and dead-end detected and reported.
 
 **Tasks:**
-- [ ] `state.js`: `KNIGHT_DELTAS`, `knightMoves(x, y)`, `availableMovesFrom(x, y)`
-- [ ] `state.js`: `continuationCount(C)` — Warnsdorff degree of `C` against `visited ∪ {C}`
-- [ ] `state.js`: `move(x, y)` — push to path, update visited / knightPos / availableMoves, run end-check (`isWin` first, then `isDeadEnd`), call `finishGame` when due
-- [ ] `state.js`: `isWin()`, `isDeadEnd()`
-- [ ] `render.js`: candidate cell shimmer — pulsating turquoise `HINT_SHIMMER` overlay (alpha `0.25 ↔ 0.55`, blur `8 ↔ 22 px`, ~1.5 s sinusoid synced with the gold-button pulse) — only when `game.showCounts === true`. When `showCounts === false`, candidate cells receive **no visual treatment at all** (no shimmer, no number, no red).
-- [ ] `render.js`: continuation count numeral drawn over the shimmer in `HINT_NUMBER` color — only when `game.showCounts === true`
-- [ ] `render.js`: zero-count cells use red `DEAD_HINT_SHIMMER` overlay + `0` numeral in `DEAD_HINT_NUMBER` — only when `game.showCounts === true`
-- [ ] `render.js`: shimmer phase is global (single `t = (now / 1500) * 2π` source) so all candidate cells pulse in sync, not phase-shifted per cell
-- [ ] `render.js`: visited cells with step number; knight sprite at `knightPos` (no extra glow on the cell — the sprite itself marks the position)
-- [ ] `render.js`: step counter / squares-left labels in the right service column
-- [ ] `game.js`: click on board cell → if in `availableMoves`, call `move(x, y)`; else play soft negative tone (sound stubbed in this milestone, real synth in M8)
-- [ ] `game.js`: hover on candidate cells switches cursor to `pointer` regardless of `showCounts`; visible brightness bump (`HINT_HOVER`) only when `showCounts === true`. Non-candidate cells: cursor `default`, no highlight.
+- [x] `state.js`: `KNIGHT_DELTAS`, `knightMoves(x, y)`, `availableMovesFrom(x, y)`
+- [x] `state.js`: `continuationCount(C)` — Warnsdorff degree of `C` against `visited ∪ {C}`
+- [x] `state.js`: `move(x, y)` — push to path, update visited / knightPos / availableMoves, run end-check (`isWin` first, then `isDeadEnd`), call `finishGame` when due
+- [x] `state.js`: `isWin()`, `isDeadEnd()`
+- [x] `render.js`: candidate cell shimmer — pulsating turquoise `HINT_SHIMMER` overlay (alpha `0.25 ↔ 0.55`, blur `8 ↔ 22 px`, ~1.5 s sinusoid synced with the gold-button pulse) — only when `game.showCounts === true`. When `showCounts === false`, candidate cells receive **no visual treatment at all** (no shimmer, no number, no red).
+- [x] `render.js`: continuation count numeral drawn over the shimmer in `HINT_NUMBER` color — only when `game.showCounts === true`
+- [x] `render.js`: zero-count cells use red `DEAD_HINT_SHIMMER` overlay + `0` numeral in `DEAD_HINT_NUMBER` — only when `game.showCounts === true`
+- [x] `render.js`: shimmer phase is global (single `t = (now / 1500) * 2π` source) so all candidate cells pulse in sync, not phase-shifted per cell
+- [x] `render.js`: visited cells with step number; knight sprite at `knightPos` (no extra glow on the cell — the sprite itself marks the position)
+- [x] `render.js`: step counter / squares-left labels in the right service column
+- [x] `game.js`: click on board cell → if in `availableMoves`, call `move(x, y)`; else play soft negative tone (sound stubbed in this milestone, real synth in M8)
+- [x] `game.js`: hover on candidate cells switches cursor to `pointer` regardless of `showCounts`; visible brightness bump (`HINT_HOVER`) only when `showCounts === true`. Non-candidate cells: cursor `default`, no highlight.
 
-**M6 implementation notes:** keep the temporary "→ Finish" button from M5c until M7 ships the proper Give up flow.
+**M6 implementation notes:**
+- Rejected-click audio is wired as a stub (`playNegativeTone`) until the Web Audio synths land in M8.
+- Temporary `→ Finish` from M5c was removed once real move / win / dead-end flow became playable.
+- Move history panel now contains only moves and supports wheel scrolling when the path is longer than the visible area.
+- Finished transitions now play a short knight exit: the knight jumps out of the final cell toward the right service area, then the finished screen appears with the final cell numbered.
 
 **How to verify:**
 - Start game with hints On → knight on `(0, 0)`, candidate cells shimmer in turquoise with continuation counts, no zeros (yet); pulse rhythm matches the gold-button pulse on the welcome screen
@@ -242,7 +248,7 @@ Process decisions:
 - [ ] `render.js`: solution overlay on finished screen — `solutionTrail` animation, then static faint trail with small numerals in cell corners
 - [ ] `game.js`: click Undo → `undo()`; disabled when `path.length < 2`; keyboard `U` (or `Ctrl+Z`) also triggers undo
 - [ ] `game.js`: click Give up? → `modal = "confirmGiveUp"`; "Yes, sorry!" → `surrender()`; "Let me think again..." or click outside → `modal = null`
-- [ ] Removed temporary "→ Finish" button from M5c
+- [x] Removed temporary "→ Finish" button from M5c
 
 **M7 implementation notes:**
 

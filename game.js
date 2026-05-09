@@ -26,9 +26,6 @@
   let debugMode = false;
   let animationFrameId = null;
   let modalRegions = null;
-  let debugFinishIndex = 0;
-
-  const DEBUG_FINISH_RESULTS = ["win", "deadEnd", "surrender"];
 
   function showCanvasFallback() {
     const fallback = document.getElementById("canvasFallback");
@@ -50,6 +47,7 @@
   }
 
   function tick() {
+    completeFinishExitIfReady();
     render();
     const { game } = window.KnightPathState;
     if (game.state === "welcome" || game.state === "playing" || game.state === "finished") {
@@ -81,7 +79,7 @@
 
   function handlePointerUp(event) {
     const point = canvasPoint(event);
-    const { game, initGame, startGame, finishGame, openSettings, saveSettings } = window.KnightPathState;
+    const { game, initGame, startGame, openSettings, saveSettings, move } = window.KnightPathState;
 
     if (game.modal === "settings") {
       handleSettingsClick(point, saveSettings);
@@ -94,7 +92,7 @@
     }
 
     if (game.state === "playing") {
-      handlePlayingClick(point, finishGame);
+      handlePlayingClick(point, move);
       return;
     }
 
@@ -120,17 +118,23 @@
     }
   }
 
-  function handlePlayingClick(point, finishGame) {
-    const button = window.KnightPathRender.tempFinishButtonRect();
-    if (!hitRect(point, button)) {
+  function handlePlayingClick(point, move) {
+    const { game } = window.KnightPathState;
+    if (game.finishExit) {
       return;
     }
 
-    const result = DEBUG_FINISH_RESULTS[debugFinishIndex];
-    debugFinishIndex = (debugFinishIndex + 1) % DEBUG_FINISH_RESULTS.length;
-    finishGame(result);
-    render();
-    ensureAnimationLoop();
+    const cell = window.KnightPathRender.boardCellAt(point, game.boardSize || DEFAULT_BOARD_SIZE);
+    if (!cell) {
+      return;
+    }
+
+    if (move(cell.x, cell.y)) {
+      canvas.style.cursor = "default";
+      render();
+    } else {
+      playNegativeTone();
+    }
   }
 
   function handleFinishedClick(point, initGame, startGame, openSettings) {
@@ -183,6 +187,73 @@
     }
   }
 
+  function handlePointerMove(event) {
+    const point = canvasPoint(event);
+    const { game, isAvailableMove } = window.KnightPathState;
+
+    if (game.modal !== null || game.state !== "playing") {
+      game.hoverCell = null;
+      canvas.style.cursor = "default";
+      return;
+    }
+
+    if (game.finishExit) {
+      game.hoverCell = null;
+      canvas.style.cursor = "default";
+      return;
+    }
+
+    const cell = window.KnightPathRender.boardCellAt(point, game.boardSize || DEFAULT_BOARD_SIZE);
+    if (cell && isAvailableMove(cell.x, cell.y)) {
+      game.hoverCell = cell;
+      canvas.style.cursor = "pointer";
+      return;
+    }
+
+    game.hoverCell = null;
+    canvas.style.cursor = "default";
+  }
+
+  function playNegativeTone() {
+    // Real audio synthesis lands in M8; M6 only needs the rejected-click hook.
+  }
+
+  function completeFinishExitIfReady() {
+    const { game, completeFinishExit } = window.KnightPathState;
+    if (!game.finishExit) {
+      return;
+    }
+
+    if (performance.now() - game.finishExit.startedAt >= game.finishExit.duration) {
+      completeFinishExit();
+    }
+  }
+
+  function handleWheel(event) {
+    const { game } = window.KnightPathState;
+    if (game.state !== "playing" || game.modal !== null) {
+      return;
+    }
+
+    const point = canvasPoint(event);
+    const panel = window.KnightPathRender.historyPanelRect();
+    if (!hitRect(point, panel)) {
+      return;
+    }
+
+    const rowH = Math.max(22, Math.round(window.KnightPathRender.layout.btnH * 0.52));
+    const listTop = panel.y + window.KnightPathRender.layout.btnH * 0.32;
+    const listBottom = panel.y + panel.h - rowH * 0.35;
+    const visibleRows = Math.max(1, Math.floor((listBottom - listTop) / rowH));
+    const totalRows = game.path && game.path.length ? game.path.length : 1;
+    const maxScroll = Math.max(0, totalRows - visibleRows);
+    const direction = event.deltaY > 0 ? 1 : -1;
+
+    game.historyScroll = Math.min(maxScroll, Math.max(0, (game.historyScroll || 0) + direction));
+    event.preventDefault();
+    render();
+  }
+
   function canvasPoint(event) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = window.KnightPathRender.layout.width / rect.width;
@@ -217,6 +288,8 @@
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("knightPathRenderAssetLoaded", render);
     canvas.addEventListener("pointerup", handlePointerUp);
+    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
   }
 
   window.KnightPathGame = {

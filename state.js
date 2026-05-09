@@ -36,6 +36,9 @@
     path: [],
     visited: new Set(),
     availableMoves: [],
+    hoverCell: null,
+    historyScroll: 0,
+    finishExit: null,
 
     result: null,
     solutionPath: null,
@@ -88,6 +91,9 @@
     game.path = [{ x: start.x, y: start.y }];
     game.visited = new Set([key(start)]);
     game.availableMoves = availableMovesFrom(start.x, start.y);
+    game.hoverCell = null;
+    game.historyScroll = 0;
+    game.finishExit = null;
     game.modal = null;
     game.result = null;
     game.solutionPath = null;
@@ -102,6 +108,8 @@
     game.result = result;
     game.state = "finished";
     game.modal = null;
+    game.hoverCell = null;
+    game.finishExit = null;
   }
 
   function knightMoves(x, y) {
@@ -119,6 +127,61 @@
     return knightMoves(x, y).filter((cell) => !game.visited.has(key(cell)));
   }
 
+  function continuationCount(cell) {
+    return knightMoves(cell.x, cell.y).filter((next) => {
+      return !game.visited.has(key(next)) && !(next.x === cell.x && next.y === cell.y);
+    }).length;
+  }
+
+  function isAvailableMove(x, y) {
+    return game.availableMoves.some((cell) => cell.x === x && cell.y === y);
+  }
+
+  function move(x, y) {
+    if (game.state !== "playing" || game.modal !== null || !isAvailableMove(x, y)) {
+      return false;
+    }
+
+    const next = { x, y };
+    game.path.push(next);
+    game.visited.add(key(next));
+    game.knightPos = next;
+    game.availableMoves = availableMovesFrom(x, y);
+    game.hoverCell = null;
+
+    if (isWin()) {
+      startFinishExit("win");
+    } else if (isDeadEnd()) {
+      startFinishExit("deadEnd");
+    }
+
+    return true;
+  }
+
+  function startFinishExit(result) {
+    game.finishExit = {
+      result,
+      startedAt: performance.now(),
+      duration: 620,
+      from: { x: game.knightPos.x, y: game.knightPos.y },
+    };
+    game.hoverCell = null;
+  }
+
+  function completeFinishExit() {
+    if (!game.finishExit) return false;
+    finishGame(game.finishExit.result);
+    return true;
+  }
+
+  function isWin() {
+    return game.path.length === game.boardSize * game.boardSize;
+  }
+
+  function isDeadEnd() {
+    return game.availableMoves.length === 0 && !isWin();
+  }
+
   window.KnightPathState = {
     game,
     key,
@@ -128,7 +191,13 @@
     initGame,
     startGame,
     finishGame,
+    completeFinishExit,
     knightMoves,
     availableMovesFrom,
+    continuationCount,
+    isAvailableMove,
+    move,
+    isWin,
+    isDeadEnd,
   };
 })();
