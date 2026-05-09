@@ -175,13 +175,19 @@ Process decisions:
 
 ## M5c — Finished screen (stub)
 
+**Status:** Done — implemented with temporary debug-finish button.
+
 **Done when:** there is a final screen with the result message and two action buttons; reachable via a temporary button.
 
 **Tasks:**
-- [ ] `state.js`: `result` field; `finishGame(result)` sets `state = "finished"` and `result` (no solution generation yet)
-- [ ] `render.js`: `drawFinished(game)` — board (with whatever path is on it) + result message + Settings & Rules + New game buttons
-- [ ] `game.js`: click New game → `initGame()`, `startGame()` (no welcome bounce)
-- [ ] `game.js`: temporary button "→ Finish (win/deadEnd/surrender)" for testing transitions (remove in M7)
+- [x] `state.js`: `result` field; `finishGame(result)` sets `state = "finished"` and `result` (no solution generation yet)
+- [x] `render.js`: `drawFinished(game)` — board (with whatever path is on it) + result message + Settings & Rules + New game buttons
+- [x] `game.js`: click New game → `initGame()`, `startGame()` (no welcome bounce)
+- [x] `game.js`: temporary button "→ Finish (win/deadEnd/surrender)" for testing transitions (remove in M7)
+
+**M5c implementation notes:**
+- Temporary `→ Finish` button is shown in the playing service column and cycles through `win`, `deadEnd`, and `surrender` results on successive uses.
+- Surrender result shows only the stub text in M5c; solution-path generation and overlay are deferred to M7.
 
 **How to verify:**
 - Use the temporary button to land on the finished screen, cycle through win / deadEnd / surrender — different texts
@@ -266,6 +272,8 @@ Process decisions:
 - [ ] `render.js`: `solutionTrail` effect (animates the surrender solution; M7 placeholder replaced with real animation)
 - [ ] `render.js`: target hover highlight on candidate cells (already shown in M6 — this milestone only adds the moveFlash on click)
 - [ ] `render.js`: knight idle breathing animation — small sinusoidal scale around `1.0` (period ~2 s) while `state === "playing"` and no input animation is active, so the knight feels alive without a glowing cell
+- [x] `render.js`: finished-screen result illustrations in the right service area — static image selected by `game.result` (`finish-win.webp`, `finish-dead-end.webp`, `finish-surrender.webp`), drawn with contain-fit between the result message and action buttons
+- [ ] `render.js`: subtle `starfall` effect for `result === "win"` only — small gold stars drifting/ twinkling over the right service area illustration; no route/path animation involved
 - [ ] `game.js`: AudioContext created lazily on first user gesture inside the iframe
 - [ ] `game.js`: synth functions for wooden knight click, soft negative tone, reverse tone (undo), victory arpeggio, defeat tones
 - [ ] `game.js`: input blocked while a board-mutating animation (`moveFlash`, `undoFade`) is running
@@ -277,6 +285,8 @@ Process decisions:
 - Win a game → board glows golden, ascending arpeggio
 - Trap the knight → red pulses around the trapped cell, descending tones, then "Dead end!" text fades in
 - Surrender → solution trail draws cell-by-cell at ~80 ms each, descending tones at the start
+- Finished screen → the right service area shows the correct static illustration for win / deadEnd / surrender
+- Win finished screen → a light starfall plays over the illustration; deadEnd and surrender illustrations remain static
 - Toggle to a wider window during animation → effect continues over the correct cell
 - All sounds gracefully degrade if AudioContext fails (no exceptions thrown)
 

@@ -98,6 +98,12 @@
     game.state = "playing";
   }
 
+  function finishGame(result) {
+    game.result = result;
+    game.state = "finished";
+    game.modal = null;
+  }
+
   function knightMoves(x, y) {
     const moves = [];
     for (const delta of KNIGHT_DELTAS) {
@@ -121,6 +127,7 @@
     saveSettings,
     initGame,
     startGame,
+    finishGame,
     knightMoves,
     availableMovesFrom,
   };

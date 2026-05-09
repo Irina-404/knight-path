@@ -26,6 +26,9 @@
   let debugMode = false;
   let animationFrameId = null;
   let modalRegions = null;
+  let debugFinishIndex = 0;
+
+  const DEBUG_FINISH_RESULTS = ["win", "deadEnd", "surrender"];
 
   function showCanvasFallback() {
     const fallback = document.getElementById("canvasFallback");
@@ -49,7 +52,7 @@
   function tick() {
     render();
     const { game } = window.KnightPathState;
-    if (game.state === "welcome" || game.state === "playing") {
+    if (game.state === "welcome" || game.state === "playing" || game.state === "finished") {
       animationFrameId = window.requestAnimationFrame(tick);
     } else {
       animationFrameId = null;
@@ -78,16 +81,31 @@
 
   function handlePointerUp(event) {
     const point = canvasPoint(event);
-    const { game, initGame, startGame, openSettings, saveSettings } = window.KnightPathState;
+    const { game, initGame, startGame, finishGame, openSettings, saveSettings } = window.KnightPathState;
 
     if (game.modal === "settings") {
       handleSettingsClick(point, saveSettings);
       return;
     }
 
-    if (game.state !== "welcome") return;
+    if (game.state === "welcome") {
+      handleWelcomeClick(point, initGame, startGame, openSettings);
+      return;
+    }
 
+    if (game.state === "playing") {
+      handlePlayingClick(point, finishGame);
+      return;
+    }
+
+    if (game.state === "finished") {
+      handleFinishedClick(point, initGame, startGame, openSettings);
+    }
+  }
+
+  function handleWelcomeClick(point, initGame, startGame, openSettings) {
     const buttons = window.KnightPathRender.welcomeButtonRects();
+
     if (hitRect(point, buttons.settings)) {
       openSettings();
       render();
@@ -95,6 +113,36 @@
     }
 
     if (hitRect(point, buttons.start)) {
+      initGame();
+      startGame();
+      render();
+      ensureAnimationLoop();
+    }
+  }
+
+  function handlePlayingClick(point, finishGame) {
+    const button = window.KnightPathRender.tempFinishButtonRect();
+    if (!hitRect(point, button)) {
+      return;
+    }
+
+    const result = DEBUG_FINISH_RESULTS[debugFinishIndex];
+    debugFinishIndex = (debugFinishIndex + 1) % DEBUG_FINISH_RESULTS.length;
+    finishGame(result);
+    render();
+    ensureAnimationLoop();
+  }
+
+  function handleFinishedClick(point, initGame, startGame, openSettings) {
+    const buttons = window.KnightPathRender.finishedButtonRects();
+
+    if (hitRect(point, buttons.settings)) {
+      openSettings();
+      render();
+      return;
+    }
+
+    if (hitRect(point, buttons.newGame)) {
       initGame();
       startGame();
       render();
